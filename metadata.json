@@ -1,0 +1,6 @@
+{
+  "name": "ASE Workbook",
+  "description": "Platform Workbook Digital modular untuk membantu mengelola berbagai aspek kehidupan dan pekerjaan dengan fitur ringkasan otomatis dan pencatatan data terpadu.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

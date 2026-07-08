@@ -1,0 +1,22 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Feedback collection rules: anyone can read and create feedback
+    match /feedback/{docId} {
+      allow read, create: if true;
+      allow update, delete: if false;
+    }
+    
+    // Backups collection rules: anyone can read, create backups
+    match /backups/{docId} {
+      allow read, create: if true;
+      allow update, delete: if false;
+    }
+
+    // Migrations collection rules: anyone can read, write migrations
+    match /migrations/{docId} {
+      allow read, create, update: if true;
+      allow delete: if false;
+    }
+  }
+}
