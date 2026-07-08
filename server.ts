@@ -45,6 +45,16 @@ async function insertFinanceRecord(dbUserId: number, record: { id: string, type:
         date: record.date,
         note: record.note || '',
       })
+      .onConflictDoUpdate({
+        target: financeRecords.id,
+        set: {
+          type: record.type,
+          category: record.category,
+          amount: record.amount,
+          date: record.date,
+          note: record.note || '',
+        }
+      })
       .returning();
   } catch (error) {
     console.error("Database error inserting finance record:", error);
@@ -78,6 +88,19 @@ async function insertGoal(dbUserId: number, goal: { id: string, workbookId: stri
         deadline: goal.deadline,
         status: goal.status,
         recommendation: goal.recommendation || '',
+      })
+      .onConflictDoUpdate({
+        target: goals.id,
+        set: {
+          workbookId: goal.workbookId,
+          workbookTitle: goal.workbookTitle,
+          name: goal.name,
+          target: goal.target,
+          progress: goal.progress,
+          deadline: goal.deadline,
+          status: goal.status,
+          recommendation: goal.recommendation || '',
+        }
       })
       .returning();
   } catch (error) {

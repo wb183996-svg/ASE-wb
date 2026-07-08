@@ -32,7 +32,9 @@ import {
   TradingRecord, 
   OkrRecord, 
   RelationshipRecord, 
-  SharedContact 
+  SharedContact,
+  Goal,
+  DailyActivity
 } from '../types';
 import { IdentityModule } from '../core/IdentityService';
 import { collection, addDoc, onSnapshot, query, where, orderBy, doc, setDoc, getDoc } from 'firebase/firestore';
@@ -58,6 +60,10 @@ interface BackupAndSyncViewProps {
   sharedContacts: SharedContact[];
   setSharedContacts: (recs: SharedContact[]) => void;
   themeColor: string;
+  goals: Goal[];
+  setGoals: (goals: Goal[]) => void;
+  activity: DailyActivity[];
+  setActivity: (acts: DailyActivity[]) => void;
 }
 
 interface BackupItem {
@@ -97,7 +103,11 @@ export default function BackupAndSyncView({
   setRelationshipRecords,
   sharedContacts,
   setSharedContacts,
-  themeColor
+  themeColor,
+  goals,
+  setGoals,
+  activity,
+  setActivity
 }: BackupAndSyncViewProps) {
   // Offline state
   const [isOnline, setIsOnline] = useState(true);
@@ -173,21 +183,20 @@ export default function BackupAndSyncView({
 
     setCloudSqlSyncStatus('syncing');
     try {
-      const serverFinance = await SyncService.fetchFinanceRecords(session.token);
+      const result = await SyncService.performFullSync(
+        session.token,
+        { financeRecords, goals, activity },
+        { setFinanceRecords, setGoals, setActivity }
+      );
 
-      if (serverFinance && serverFinance.length > 0) {
-        setFinanceRecords(serverFinance);
-        setCloudSqlRecordsCount(serverFinance.length);
-        alert(`✓ Sinkronisasi Cloud SQL Sukses!\n${serverFinance.length} entri keuangan ditarik dari Cloud SQL PostgreSQL ke penyimpanan lokal.`);
+      if (result.success) {
+        const freshRecords = await SyncService.fetchFinanceRecords(session.token);
+        setCloudSqlRecordsCount(freshRecords.length);
+        alert(`✓ Sinkronisasi Cloud SQL Sukses!\n${result.message}`);
+        setCloudSqlSyncStatus('success');
       } else {
-        // Send all local financeRecords to server
-        for (const rec of financeRecords) {
-          await SyncService.saveFinanceRecord(session.token, rec);
-        }
-        setCloudSqlRecordsCount(financeRecords.length);
-        alert(`✓ Sinkronisasi Cloud SQL Sukses!\n${financeRecords.length} entri keuangan lokal didorong ke database Cloud SQL PostgreSQL.`);
+        throw new Error(result.message);
       }
-      setCloudSqlSyncStatus('success');
       setTimeout(() => setCloudSqlSyncStatus('idle'), 3000);
     } catch (err: any) {
       console.error("Cloud SQL Sync error:", err);

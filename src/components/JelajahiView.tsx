@@ -82,6 +82,10 @@ interface JelajahiViewProps {
   setRelationshipRecords?: (val: any[]) => void;
   sharedContacts?: any[];
   setSharedContacts?: (val: any[]) => void;
+  goals?: any[];
+  setGoals?: (val: any[]) => void;
+  activity?: any[];
+  setActivity?: (val: any[]) => void;
 }
 
 export default function JelajahiView({
@@ -110,7 +114,11 @@ export default function JelajahiView({
   relationshipRecords = [],
   setRelationshipRecords = () => {},
   sharedContacts = [],
-  setSharedContacts = () => {}
+  setSharedContacts = () => {},
+  goals = [],
+  setGoals = () => {},
+  activity = [],
+  setActivity = () => {}
 }: JelajahiViewProps) {
   
   // Tab level state
@@ -605,6 +613,10 @@ export default function JelajahiView({
           sharedContacts={sharedContacts}
           setSharedContacts={setSharedContacts}
           themeColor={themeColor}
+          goals={goals}
+          setGoals={setGoals}
+          activity={activity}
+          setActivity={setActivity}
         />
       )}
 

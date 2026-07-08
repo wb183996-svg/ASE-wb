@@ -71,6 +71,7 @@ import { getThemeStyles } from './MobileFrame';
 import { BookEngine, DashboardEngine } from '../modules/BookEngine';
 import { SharedData } from '../modules/ModuleContract';
 import { DecisionEngine, DecisionAdvice, ActionPlanItem } from '../utils/DecisionEngine';
+import { IdentityModule } from '../core/IdentityService';
 
 interface RingkasanViewProps {
   workbooks: Workbook[];
@@ -132,11 +133,17 @@ export default function RingkasanView({
     setIsLoadingInsight(true);
     setInsightError(null);
     try {
+      const session = IdentityModule.getCurrentSession();
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+      };
+      if (session && session.token) {
+        headers['Authorization'] = `Bearer ${session.token}`;
+      }
+
       const response = await fetch('/api/ai-insight', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers,
         body: JSON.stringify({
           financeRecords,
           activity,

@@ -176,45 +176,36 @@ export class SyncService {
       // 1. Sync User Profile with Backend (auto registers in Postgres users table if not exists)
       await this.syncUserProfile(token);
 
-      // 2. Fetch server-side state
+      // 2. Bidirectional sync: Push local data to server first (safe because of server-side upserts)
+      if (localState.financeRecords.length > 0) {
+        for (const record of localState.financeRecords) {
+          await this.saveFinanceRecord(token, record);
+        }
+      }
+
+      if (localState.goals.length > 0) {
+        for (const goal of localState.goals) {
+          await this.saveGoal(token, goal);
+        }
+      }
+
+      if (localState.activity.length > 0) {
+        await this.saveActivities(token, localState.activity);
+      }
+
+      // 3. Pull unified, authoritative state from the server
       const [serverFinance, serverGoals, serverActivities] = await Promise.all([
         this.fetchFinanceRecords(token),
         this.fetchGoals(token),
         this.fetchActivities(token)
       ]);
 
-      // 3. Resolve conflict / Merge Strategy
-      // If server has records, we pull and merge or replace. If server is empty, we push local state to Cloud SQL.
-      
-      // Sync Finance Records
-      if (serverFinance.length > 0) {
-        stateUpdaters.setFinanceRecords(serverFinance);
-      } else {
-        // Push local finance records to Cloud SQL
-        for (const record of localState.financeRecords) {
-          await this.saveFinanceRecord(token, record);
-        }
-      }
+      // 4. Update the client-side state
+      stateUpdaters.setFinanceRecords(serverFinance);
+      stateUpdaters.setGoals(serverGoals);
+      stateUpdaters.setActivity(serverActivities);
 
-      // Sync Goals
-      if (serverGoals.length > 0) {
-        stateUpdaters.setGoals(serverGoals);
-      } else {
-        // Push local goals to Cloud SQL
-        for (const goal of localState.goals) {
-          await this.saveGoal(token, goal);
-        }
-      }
-
-      // Sync Daily Activities
-      if (serverActivities.length > 0) {
-        stateUpdaters.setActivity(serverActivities);
-      } else {
-        // Push local activities to Cloud SQL
-        await this.saveActivities(token, localState.activity);
-      }
-
-      return { success: true, message: 'Sinkronisasi Cloud SQL Berhasil!' };
+      return { success: true, message: 'Sinkronisasi dua arah dengan Cloud SQL PostgreSQL berhasil dilakukan!' };
     } catch (error: any) {
       console.error('Full Sync failed:', error);
       return { success: false, message: error.message || 'Gagal menyinkronkan data.' };

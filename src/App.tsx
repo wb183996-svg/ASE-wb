@@ -693,6 +693,26 @@ export default function App() {
             onAddPurchase={handlePurchaseWorkbook}
             onPublishWorkbook={handlePublishWorkbook}
             onUpdateWorkbook={handleUpdateWorkbook}
+            financeRecords={financeRecords}
+            setFinanceRecords={setFinanceRecords}
+            taskRecords={taskRecords}
+            setTaskRecords={setTaskRecords}
+            habitRecords={habitRecords}
+            setHabitRecords={setHabitRecords}
+            crmRecords={crmRecords}
+            setCrmRecords={setCrmRecords}
+            tradingRecords={tradingRecords}
+            setTradingRecords={setTradingRecords}
+            okrRecords={okrRecords}
+            setOkrRecords={setOkrRecords}
+            relationshipRecords={relationshipRecords}
+            setRelationshipRecords={setRelationshipRecords}
+            sharedContacts={sharedContacts}
+            setSharedContacts={setSharedContacts}
+            goals={goals}
+            setGoals={setGoals}
+            activity={activity}
+            setActivity={setActivity}
           />
         );
       case 'ringkasan':
