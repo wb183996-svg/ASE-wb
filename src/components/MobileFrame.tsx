@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Wifi, Battery, Signal, ArrowLeft } from 'lucide-react';
 import { UserProfile } from '../types';
+import AseLogo from './AseLogo';
 
 interface MobileFrameProps {
   children: React.ReactNode;
@@ -189,13 +190,18 @@ export default function MobileFrame({
                 <ArrowLeft className="w-5 h-5 text-slate-800" />
               </button>
             )}
-            <div>
-              <h1 className="text-xl font-extrabold text-[#1D1B20] tracking-tight leading-none">
-                {title}
-              </h1>
-              <p className="text-[10px] text-slate-500 font-medium mt-1 uppercase tracking-wider">
-                Meningkatkan Efisiensi Belajar
-              </p>
+            <div className="flex items-center gap-2">
+              {title === 'ASE Workbook' && (
+                <AseLogo size={32} withBackground={true} className="shrink-0 shadow-sm rounded-lg" />
+              )}
+              <div>
+                <h1 className="text-xl font-extrabold text-[#1D1B20] tracking-tight leading-none flex items-center gap-1.5">
+                  {title}
+                </h1>
+                <p className="text-[10px] text-slate-500 font-medium mt-1 uppercase tracking-wider">
+                  Meningkatkan Efisiensi Belajar
+                </p>
+              </div>
             </div>
           </div>
           

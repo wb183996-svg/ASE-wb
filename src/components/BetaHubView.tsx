@@ -34,6 +34,7 @@ import { IdentityModule } from '../core/IdentityService';
 import { ReleaseService, ReleaseInfo } from '../services/ReleaseService';
 import { collection, addDoc, onSnapshot, query, orderBy, limit } from 'firebase/firestore';
 import { db } from '../lib/firebase';
+import AseLogo from './AseLogo';
 
 interface BetaHubViewProps {
   themeColor: string;
@@ -2174,9 +2175,7 @@ API Error Rate: ${errorRate}%`;
 
           {/* App Info Panel */}
           <div className="flex items-start gap-4">
-            <div className="w-12 h-12 bg-gradient-to-tr from-emerald-600 to-teal-500 rounded-2xl flex items-center justify-center shadow-md shadow-emerald-900/30 text-white text-lg font-black shrink-0">
-              ASE
-            </div>
+            <AseLogo size={48} withBackground={true} className="rounded-2xl shrink-0 shadow-md" />
             <div className="space-y-1">
               <h4 className="font-extrabold text-sm text-slate-100 leading-tight">ASE Workbook</h4>
               <p className="text-[10px] text-slate-400 font-mono">com.ase.workbook • v1.5.0-beta.1</p>

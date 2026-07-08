@@ -1,6 +1,7 @@
 import React from 'react';
 import { BookOpen, Database, BarChart3, ChevronRight, PlusCircle } from 'lucide-react';
 import { motion } from 'motion/react';
+import AseLogo from './AseLogo';
 
 interface SplashScreenProps {
   onDismiss: () => void;
@@ -20,9 +21,9 @@ export default function SplashScreen({ onDismiss }: SplashScreenProps) {
           initial={{ scale: 0.8, opacity: 0 }}
           animate={{ scale: 1, opacity: 1 }}
           transition={{ duration: 0.6, type: 'spring' }}
-          className="w-20 h-20 bg-emerald-500 rounded-3xl flex items-center justify-center border border-emerald-400 mb-4 shadow-md shadow-emerald-200"
+          className="mb-4"
         >
-          <BookOpen className="w-11 h-11 text-white" />
+          <AseLogo size={96} withBackground={true} className="shadow-2xl shadow-slate-900/20" />
         </motion.div>
         
         <motion.h1 
