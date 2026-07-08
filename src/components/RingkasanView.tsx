@@ -4,6 +4,7 @@
  */
 
 import React, { useState } from 'react';
+import Markdown from 'react-markdown';
 import { 
   BarChart3, 
   Award, 
@@ -108,6 +109,43 @@ export default function RingkasanView({
   // State for Decision & Coaching Engine
   const [adviceListState, setAdviceListState] = useState<DecisionAdvice[]>([]);
   const [selectedAdviceId, setSelectedAdviceId] = useState<string>('DE-FIN');
+
+  // State for Gemini AI Insight Engine
+  const [aiInsight, setAiInsight] = useState<string | null>(null);
+  const [isLoadingInsight, setIsLoadingInsight] = useState<boolean>(false);
+  const [insightError, setInsightError] = useState<string | null>(null);
+
+  const fetchAiInsight = async () => {
+    setIsLoadingInsight(true);
+    setInsightError(null);
+    try {
+      const response = await fetch('/api/ai-insight', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          financeRecords,
+          activity,
+          workspaceMode: user.workspaceMode || 'Individu',
+          goals
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Gagal menghasilkan analisis.');
+      }
+
+      const data = await response.json();
+      setAiInsight(data.insight);
+    } catch (err: any) {
+      console.error(err);
+      setInsightError(err.message || 'Gagal terhubung dengan server analisis.');
+    } finally {
+      setIsLoadingInsight(false);
+    }
+  };
 
   // React to change in database records to update heuristic insights
   React.useEffect(() => {
@@ -958,6 +996,86 @@ export default function RingkasanView({
             ASE mengolah data Anda menjadi bimbingan keputusan berharga. Menggunakan analisis heuristik dinamis untuk merumuskan kritik obyektif, rencana aksi sistematis, pemantauan target harian, dan rekomendasi perbaikan hidup terperinci.
           </p>
         </div>
+      </div>
+
+      {/* GEMINI AI INSIGHT BLOCK */}
+      <div className="bg-gradient-to-br from-indigo-900 via-slate-900 to-indigo-950 text-white p-5 rounded-2xl border border-indigo-800 shadow-md space-y-4">
+        <div className="flex justify-between items-center">
+          <div className="flex items-center gap-2">
+            <div className="p-1.5 bg-amber-500/10 border border-amber-500/20 rounded-xl">
+              <Sparkles className="w-5 h-5 text-amber-400 animate-pulse" />
+            </div>
+            <div>
+              <h3 className="font-extrabold text-xs text-slate-100 uppercase tracking-wide">Gemini AI Smart Insight</h3>
+              <p className="text-[9px] text-indigo-300 font-bold uppercase tracking-wider">Powered by Gemini 3.5 Flash</p>
+            </div>
+          </div>
+          <span className="text-[8px] bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 px-2 py-0.5 rounded font-black uppercase tracking-wider">
+            Sinergi Cerdas
+          </span>
+        </div>
+
+        <p className="text-[11px] text-slate-300 leading-relaxed font-medium">
+          Dapatkan ringkasan cerdas, pola tersembunyi, korelasi waktu-keuangan, dan rekomendasi aksi strategis dari seluruh aktivitas dan data keuangan Anda minggu ini.
+        </p>
+
+        {aiInsight ? (
+          <div className="bg-slate-950/60 border border-indigo-950 rounded-xl p-4 space-y-3 max-h-[400px] overflow-y-auto no-scrollbar text-xs leading-relaxed text-slate-200">
+            <div className="markdown-body prose prose-invert max-w-none text-slate-200 space-y-2">
+              <Markdown
+                components={{
+                  h1: ({node, ...props}) => <h1 className="text-xs font-black text-amber-400 mt-4 mb-2 uppercase tracking-wider border-b border-indigo-950 pb-1" {...props} />,
+                  h2: ({node, ...props}) => <h2 className="text-[11px] font-black text-amber-400 mt-3.5 mb-1.5 uppercase tracking-wider" {...props} />,
+                  h3: ({node, ...props}) => <h3 className="text-[10px] font-extrabold text-amber-400 mt-3 mb-1 uppercase" {...props} />,
+                  p: ({node, ...props}) => <p className="text-[11px] text-slate-200 leading-relaxed font-medium mb-2.5" {...props} />,
+                  ul: ({node, ...props}) => <ul className="list-disc pl-4 space-y-1.5 mb-3" {...props} />,
+                  ol: ({node, ...props}) => <ol className="list-decimal pl-4 space-y-1.5 mb-3" {...props} />,
+                  li: ({node, ...props}) => <li className="text-[11px] text-slate-300 font-semibold leading-relaxed" {...props} />,
+                  strong: ({node, ...props}) => <strong className="font-extrabold text-white" {...props} />,
+                  blockquote: ({node, ...props}) => <blockquote className="border-l-2 border-indigo-500 pl-2.5 italic text-slate-400 my-2" {...props} />,
+                }}
+              >
+                {aiInsight}
+              </Markdown>
+            </div>
+            
+            <div className="pt-2 border-t border-indigo-950/50 flex justify-between items-center">
+              <span className="text-[9px] text-slate-400 font-bold italic">Analisis real-time berdasarkan rekod terbaru</span>
+              <button
+                onClick={fetchAiInsight}
+                disabled={isLoadingInsight}
+                className="text-[10px] text-amber-400 font-extrabold hover:underline flex items-center gap-1 cursor-pointer"
+              >
+                <RefreshCw className={`w-3 h-3 ${isLoadingInsight ? 'animate-spin' : ''}`} />
+                Perbarui Analisis
+              </button>
+            </div>
+          </div>
+        ) : (
+          <div className="flex flex-col items-center justify-center py-4 space-y-3">
+            {isLoadingInsight ? (
+              <div className="text-center space-y-2 py-4">
+                <RefreshCw className="w-8 h-8 text-amber-400 animate-spin mx-auto" />
+                <p className="text-[11px] text-slate-300 font-bold animate-pulse">Gemini sedang menganalisis data keuangan, target sasaran, dan produktivitas Anda...</p>
+              </div>
+            ) : (
+              <>
+                {insightError && (
+                  <div className="p-3 bg-rose-500/10 border border-rose-500/20 rounded-xl text-center text-rose-300 text-[11px] font-semibold w-full">
+                    ⚠️ {insightError}
+                  </div>
+                )}
+                <button
+                  onClick={fetchAiInsight}
+                  className="px-5 py-2.5 bg-gradient-to-r from-amber-400 to-amber-500 hover:from-amber-500 hover:to-amber-600 text-slate-950 font-black rounded-xl text-xs cursor-pointer flex items-center gap-2 transition-all shadow-md transform hover:scale-[1.01] active:scale-95"
+                >
+                  <Sparkles className="w-4 h-4 fill-slate-950" />
+                  Mulai Analisis AI Insight ⚡
+                </button>
+              </>
+            )}
+          </div>
+        )}
       </div>
 
       {/* 2. SUB-TAB ENGINE SELECTOR */}

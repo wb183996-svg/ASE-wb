@@ -1991,16 +1991,16 @@ API Error Rate: ${errorRate}%`;
                 {/* Step 1: Check Update */}
                 <div className="flex items-center justify-between">
                   <span className="flex items-center gap-1.5 text-slate-300">
-                    <span className={`w-1.5 h-1.5 rounded-full ${updateStep === 'idle' ? 'bg-slate-600' : updateStep === 'checking' ? 'bg-amber-500 animate-pulse' : 'bg-emerald-500'}`}></span>
+                    <span className={`w-1.5 h-1.5 rounded-full ${updateStep === 'checking' ? 'bg-amber-500 animate-pulse' : 'bg-emerald-500'}`}></span>
                     1. Check Update (Memeriksa server rilis...)
                   </span>
-                  <span className={updateStep === 'checking' ? 'text-amber-400 font-bold' : (updateStep === 'idle' ? 'text-slate-500' : 'text-emerald-400 font-bold')}>
-                    {updateStep === 'checking' ? 'Checking...' : (updateStep === 'idle' ? 'Pending' : 'COMPLETE')}
+                  <span className={updateStep === 'checking' ? 'text-amber-400 font-bold' : 'text-emerald-400 font-bold'}>
+                    {updateStep === 'checking' ? 'Checking...' : 'COMPLETE'}
                   </span>
                 </div>
 
                 {/* Step 2: Download */}
-                {(updateStep !== 'idle' && updateStep !== 'checking') && (
+                {updateStep !== 'checking' && (
                   <div className="space-y-1 pl-3.5 border-l border-slate-800">
                     <div className="flex justify-between text-slate-300">
                       <span className="flex items-center gap-1.5">
@@ -2018,7 +2018,7 @@ API Error Rate: ${errorRate}%`;
                 )}
 
                 {/* Step 3: Verify SHA256 */}
-                {(updateStep !== 'idle' && updateStep !== 'checking' && updateStep !== 'downloading') && (
+                {(updateStep !== 'checking' && updateStep !== 'downloading') && (
                   <div className="flex items-center justify-between pl-3.5 border-l border-slate-800">
                     <span className="flex items-center gap-1.5 text-slate-300">
                       <span className={`w-1.5 h-1.5 rounded-full ${updateStep === 'verifying_sha' ? 'bg-amber-500 animate-pulse' : (updateStep === 'verifying_signature' || updateStep === 'installing' || updateStep === 'restarting' || updateStep === 'done' ? 'bg-emerald-500' : 'bg-slate-600')}`}></span>
@@ -2031,7 +2031,7 @@ API Error Rate: ${errorRate}%`;
                 )}
 
                 {/* Step 4: Verify Signature */}
-                {(updateStep !== 'idle' && updateStep !== 'checking' && updateStep !== 'downloading' && updateStep !== 'verifying_sha') && (
+                {(updateStep !== 'checking' && updateStep !== 'downloading' && updateStep !== 'verifying_sha') && (
                   <div className="flex items-center justify-between pl-3.5 border-l border-slate-800">
                     <span className="flex items-center gap-1.5 text-slate-300">
                       <span className={`w-1.5 h-1.5 rounded-full ${updateStep === 'verifying_signature' ? 'bg-amber-500 animate-pulse' : (updateStep === 'installing' || updateStep === 'restarting' || updateStep === 'done' ? 'bg-emerald-500' : 'bg-slate-600')}`}></span>
@@ -2044,7 +2044,7 @@ API Error Rate: ${errorRate}%`;
                 )}
 
                 {/* Step 5: Install */}
-                {(updateStep !== 'idle' && updateStep !== 'checking' && updateStep !== 'downloading' && updateStep !== 'verifying_sha' && updateStep !== 'verifying_signature') && (
+                {(updateStep !== 'checking' && updateStep !== 'downloading' && updateStep !== 'verifying_sha' && updateStep !== 'verifying_signature') && (
                   <div className="flex items-center justify-between pl-3.5 border-l border-slate-800">
                     <span className="flex items-center gap-1.5 text-slate-300">
                       <span className={`w-1.5 h-1.5 rounded-full ${updateStep === 'installing' ? 'bg-amber-500 animate-pulse' : (updateStep === 'restarting' || updateStep === 'done' ? 'bg-emerald-500' : 'bg-slate-600')}`}></span>
@@ -2057,7 +2057,7 @@ API Error Rate: ${errorRate}%`;
                 )}
 
                 {/* Step 6: Restart */}
-                {(updateStep !== 'idle' && updateStep !== 'checking' && updateStep !== 'downloading' && updateStep !== 'verifying_sha' && updateStep !== 'verifying_signature' && updateStep !== 'installing') && (
+                {(updateStep !== 'checking' && updateStep !== 'downloading' && updateStep !== 'verifying_sha' && updateStep !== 'verifying_signature' && updateStep !== 'installing') && (
                   <div className="flex items-center justify-between pl-3.5 border-l border-slate-800">
                     <span className="flex items-center gap-1.5 text-slate-300">
                       <span className={`w-1.5 h-1.5 rounded-full ${updateStep === 'restarting' ? 'bg-amber-500 animate-pulse' : 'bg-emerald-500'}`}></span>
