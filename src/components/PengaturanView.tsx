@@ -20,7 +20,23 @@ import {
   Activity,
   Award
 } from 'lucide-react';
-import { UserProfile, ThemeColor } from '../types';
+import { 
+  UserProfile, 
+  ThemeColor,
+  Workbook,
+  DailyActivity,
+  FinanceRecord,
+  TaskRecord,
+  HabitRecord,
+  CrmRecord,
+  TradingRecord,
+  OkrRecord,
+  RelationshipRecord,
+  SharedContact,
+  PurchaseRecord,
+  Goal,
+  TimelineItem
+} from '../types';
 import { getThemeStyles } from './MobileFrame';
 import { TRANSLATIONS, getTranslation, Locale, LanguageRegistry } from '../lib/i18n';
 import CoreKernelView from './CoreKernelView';
@@ -35,6 +51,19 @@ interface PengaturanViewProps {
   onResetData: () => void;
   language: string;
   onChangeLanguage: (lang: string) => void;
+  workbooks?: Workbook[];
+  activity?: DailyActivity[];
+  financeRecords?: FinanceRecord[];
+  taskRecords?: TaskRecord[];
+  habitRecords?: HabitRecord[];
+  crmRecords?: CrmRecord[];
+  tradingRecords?: TradingRecord[];
+  okrRecords?: OkrRecord[];
+  relationshipRecords?: RelationshipRecord[];
+  sharedContacts?: SharedContact[];
+  purchases?: PurchaseRecord[];
+  goals?: Goal[];
+  timeline?: TimelineItem[];
 }
 
 export default function PengaturanView({
@@ -46,12 +75,71 @@ export default function PengaturanView({
   onResetData,
   language,
   onChangeLanguage,
+  workbooks = [],
+  activity = [],
+  financeRecords = [],
+  taskRecords = [],
+  habitRecords = [],
+  crmRecords = [],
+  tradingRecords = [],
+  okrRecords = [],
+  relationshipRecords = [],
+  sharedContacts = [],
+  purchases = [],
+  goals = [],
+  timeline = [],
 }: PengaturanViewProps) {
   const [dataSavedFeedback, setDataSavedFeedback] = useState(false);
   const [backupStatus, setBackupStatus] = useState<string | null>(null);
   const [restoreStatus, setRestoreStatus] = useState<string | null>(null);
   const [activeArchTab, setActiveArchTab] = useState<'core' | 'data' | 'guardian' | 'engine' | 'shared'>('core');
   const [showDeveloperConsole, setShowDeveloperConsole] = useState(false);
+
+  const handleDownloadBackupFile = () => {
+    setBackupStatus('Mencadangkan...');
+    try {
+      const backupData = {
+        backupVersion: "1.0",
+        backedUpAt: new Date().toISOString(),
+        user,
+        themeColor,
+        language,
+        workbooks,
+        activity,
+        financeRecords,
+        taskRecords,
+        habitRecords,
+        crmRecords,
+        tradingRecords,
+        okrRecords,
+        relationshipRecords,
+        sharedContacts,
+        purchases,
+        goals,
+        timeline
+      };
+
+      const jsonString = JSON.stringify(backupData, null, 2);
+      const blob = new Blob([jsonString], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `ase_workbook_backup_${new Date().toISOString().slice(0, 10)}.json`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+
+      const now = new Date().toLocaleTimeString();
+      setBackupStatus(`✓ Cadangan JSON berhasil diunduh pada ${now}`);
+      setTimeout(() => setBackupStatus(null), 4000);
+    } catch (err) {
+      console.error(err);
+      setBackupStatus('❌ Gagal mengunduh file cadangan');
+      setTimeout(() => setBackupStatus(null), 4000);
+    }
+  };
 
   // States for the i18n Translation Matrix Playground
   const [selectedKeyToInspect, setSelectedKeyToInspect] = useState<string>('workbook.install');
@@ -299,15 +387,15 @@ export default function PengaturanView({
         </p>
 
         <div className="grid grid-cols-2 gap-3 pt-1">
-          {/* Cadangan Data */}
+          {/* Backup Data */}
           <button
             id="btn-backup-data"
-            onClick={handleBackup}
+            onClick={handleDownloadBackupFile}
             disabled={backupStatus === 'Mencadangkan...'}
             className="py-2.5 px-3 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-xl text-xs font-bold text-slate-700 flex flex-col items-center justify-center gap-1.5 transition-all cursor-pointer"
           >
             <Download className="w-4 h-4 text-emerald-600" />
-            Cadangkan Data
+            Backup Data
           </button>
 
           {/* Pemulihan Data */}

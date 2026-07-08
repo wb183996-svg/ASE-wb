@@ -30,8 +30,9 @@ var import_genai = require("@google/genai");
 var import_dotenv = __toESM(require("dotenv"), 1);
 var import_meta = {};
 import_dotenv.default.config();
-var __filename = (0, import_url.fileURLToPath)(import_meta.url);
-var __dirname = import_path.default.dirname(__filename);
+var isESM = typeof import_meta !== "undefined" && import_meta.url;
+var currentFile = isESM ? (0, import_url.fileURLToPath)(import_meta.url) : typeof __filename !== "undefined" ? __filename : "";
+var currentDir = isESM ? import_path.default.dirname(currentFile) : typeof __dirname !== "undefined" ? __dirname : process.cwd();
 async function startServer() {
   const app = (0, import_express.default)();
   const PORT = 3e3;

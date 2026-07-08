@@ -695,6 +695,19 @@ export default function App() {
             onResetData={handleResetData}
             language={language}
             onChangeLanguage={setLanguage}
+            workbooks={workbooks}
+            activity={activity}
+            financeRecords={financeRecords}
+            taskRecords={taskRecords}
+            habitRecords={habitRecords}
+            crmRecords={crmRecords}
+            tradingRecords={tradingRecords}
+            okrRecords={okrRecords}
+            relationshipRecords={relationshipRecords}
+            sharedContacts={sharedContacts}
+            purchases={purchases}
+            goals={goals}
+            timeline={timeline}
           />
         );
       default:

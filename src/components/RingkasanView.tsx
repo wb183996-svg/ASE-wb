@@ -55,6 +55,18 @@ import {
   Goal,
   UserProfile
 } from '../types';
+import { 
+  ResponsiveContainer, 
+  BarChart, 
+  Bar, 
+  LineChart, 
+  Line, 
+  XAxis, 
+  YAxis, 
+  CartesianGrid, 
+  Tooltip, 
+  Legend 
+} from 'recharts';
 import { getThemeStyles } from './MobileFrame';
 import { BookEngine, DashboardEngine } from '../modules/BookEngine';
 import { SharedData } from '../modules/ModuleContract';
@@ -105,6 +117,7 @@ export default function RingkasanView({
   const [newGoalDeadline, setNewGoalDeadline] = useState('');
   const [newGoalWbId, setNewGoalWbId] = useState('wb-keuangan');
   const [viewTab, setViewTab] = useState<'dashboard' | 'decision' | 'core'>('dashboard');
+  const [financeChartType, setFinanceChartType] = useState<'bar' | 'line'>('bar');
 
   // State for Decision & Coaching Engine
   const [adviceListState, setAdviceListState] = useState<DecisionAdvice[]>([]);
@@ -331,6 +344,94 @@ export default function RingkasanView({
   ];
 
   const selectedAdvice = adviceListState.find(a => a.id === selectedAdviceId) || adviceListState[0];
+
+  // Dynamic 4-week window calculation for finance records
+  const getWeeklyFinanceData = () => {
+    let referenceDate = new Date();
+    if (financeRecords && financeRecords.length > 0) {
+      const dates = financeRecords.map(r => new Date(r.date).getTime()).filter(t => !isNaN(t));
+      if (dates.length > 0) {
+        referenceDate = new Date(Math.max(...dates));
+      }
+    }
+    
+    // Find Monday of that reference week
+    const refDay = referenceDate.getDay();
+    const refDiff = referenceDate.getDate() - refDay + (refDay === 0 ? -6 : 1);
+    const refMonday = new Date(referenceDate);
+    refMonday.setDate(refDiff);
+    refMonday.setHours(0,0,0,0);
+    
+    // Generate last 4 weeks
+    const weeksList: { weekKey: string; weekLabel: string; pemasukan: number; pengeluaran: number }[] = [];
+    const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
+    
+    for (let i = 3; i >= 0; i--) {
+      const monday = new Date(refMonday);
+      monday.setDate(refMonday.getDate() - (i * 7));
+      const weekKey = monday.toISOString().split('T')[0];
+      const dayOfMonth = monday.getDate();
+      const month = monthNames[monday.getMonth()];
+      weeksList.push({
+        weekKey,
+        weekLabel: `Mng ${dayOfMonth} ${month}`,
+        pemasukan: 0,
+        pengeluaran: 0
+      });
+    }
+    
+    // Distribute records
+    if (financeRecords) {
+      financeRecords.forEach(rec => {
+        if (!rec.date) return;
+        const recordDate = new Date(rec.date);
+        if (isNaN(recordDate.getTime())) return;
+        
+        const rDay = recordDate.getDay();
+        const rDiff = recordDate.getDate() - rDay + (rDay === 0 ? -6 : 1);
+        const rMonday = new Date(recordDate);
+        rMonday.setDate(rDiff);
+        rMonday.setHours(0,0,0,0);
+        const rWeekKey = rMonday.toISOString().split('T')[0];
+        
+        const weekObj = weeksList.find(w => w.weekKey === rWeekKey);
+        if (weekObj) {
+          if (rec.type === 'pemasukan') {
+            weekObj.pemasukan += rec.amount;
+          } else if (rec.type === 'pengeluaran') {
+            weekObj.pengeluaran += rec.amount;
+          }
+        }
+      });
+    }
+    
+    return weeksList.map(({ weekLabel, pemasukan, pengeluaran }) => ({
+      name: weekLabel,
+      Pemasukan: pemasukan,
+      Pengeluaran: pengeluaran
+    }));
+  };
+
+  const weeklyFinanceData = getWeeklyFinanceData();
+  const totalPemasukanWindow = weeklyFinanceData.reduce((sum, item) => sum + item.Pemasukan, 0);
+  const totalPengeluaranWindow = weeklyFinanceData.reduce((sum, item) => sum + item.Pengeluaran, 0);
+
+  const CustomFinanceTooltip = ({ active, payload, label }: any) => {
+    if (active && payload && payload.length) {
+      return (
+        <div className="bg-slate-900 text-white p-2.5 rounded-xl border border-slate-800 shadow-lg text-[10px] font-bold space-y-1">
+          <p className="text-slate-400 uppercase tracking-wider text-[9px] mb-1">{label}</p>
+          {payload.map((entry: any, index: number) => (
+            <div key={index} className="flex justify-between gap-4">
+              <span className="capitalize" style={{ color: entry.color }}>{entry.name}:</span>
+              <span className="font-extrabold text-right">{formatRupiah(entry.value)}</span>
+            </div>
+          ))}
+        </div>
+      );
+    }
+    return null;
+  };
 
   return (
     <div className="p-4 space-y-4 animate-fade-in pb-12">
@@ -838,6 +939,124 @@ export default function RingkasanView({
               <p className="text-[9px] mt-1 font-semibold leading-relaxed">Hubungkan Workbook Anda di tab "Jelajahi" untuk melihat metrik real-time di sini.</p>
             </div>
           )}
+        </div>
+      </div>
+
+      {/* 2.5. VISUAL FINANCE WEEKLY TREND CHART (RECHARTS) */}
+      <div className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm space-y-3.5">
+        <div className="flex justify-between items-start">
+          <div>
+            <div className="flex items-center gap-1.5">
+              <TrendingUp className="w-4.5 h-4.5 text-emerald-600" />
+              <h3 className="font-extrabold text-sm text-slate-800">Tren Finansial Mingguan</h3>
+            </div>
+            <p className="text-[10px] text-slate-400 font-bold">Arus pemasukan vs pengeluaran 4 minggu terakhir</p>
+          </div>
+          
+          {/* Chart Type Toggle Button Pill */}
+          <div className="bg-slate-100 p-0.5 rounded-lg border border-slate-200 flex shrink-0">
+            <button
+              onClick={() => setFinanceChartType('bar')}
+              className={`px-2 py-1 text-[9px] font-extrabold rounded-md transition-all cursor-pointer ${
+                financeChartType === 'bar'
+                  ? 'bg-white text-slate-800 shadow-xs'
+                  : 'text-slate-500 hover:text-slate-800'
+              }`}
+            >
+              Batang
+            </button>
+            <button
+              onClick={() => setFinanceChartType('line')}
+              className={`px-2 py-1 text-[9px] font-extrabold rounded-md transition-all cursor-pointer ${
+                financeChartType === 'line'
+                  ? 'bg-white text-slate-800 shadow-xs'
+                  : 'text-slate-500 hover:text-slate-800'
+              }`}
+            >
+              Garis
+            </button>
+          </div>
+        </div>
+
+        {/* The Recharts Plot */}
+        <div className="h-48 w-full text-xs font-semibold relative select-none">
+          <ResponsiveContainer width="100%" height="100%">
+            {financeChartType === 'bar' ? (
+              <BarChart
+                data={weeklyFinanceData}
+                margin={{ top: 5, right: 5, left: -25, bottom: 5 }}
+              >
+                <CartesianGrid strokeDasharray="3 3" stroke="#F1F5F9" vertical={false} />
+                <XAxis 
+                  dataKey="name" 
+                  stroke="#94A3B8" 
+                  fontSize={9} 
+                  tickLine={false} 
+                  axisLine={false}
+                />
+                <YAxis 
+                  stroke="#94A3B8" 
+                  fontSize={9} 
+                  tickLine={false} 
+                  axisLine={false}
+                  tickFormatter={(val) => val >= 1000000 ? `${(val / 1000000).toFixed(1)}jt` : val >= 1000 ? `${(val / 1000).toFixed(0)}rb` : val}
+                />
+                <Tooltip content={<CustomFinanceTooltip />} cursor={{ fill: '#F8FAFC' }} />
+                <Legend 
+                  verticalAlign="top" 
+                  height={24} 
+                  iconType="circle" 
+                  iconSize={6}
+                  wrapperStyle={{ fontSize: '9px', fontWeight: 'bold' }}
+                />
+                <Bar name="Pemasukan" dataKey="Pemasukan" fill="#10B981" radius={[4, 4, 0, 0]} barSize={12} />
+                <Bar name="Pengeluaran" dataKey="Pengeluaran" fill="#F43F5E" radius={[4, 4, 0, 0]} barSize={12} />
+              </BarChart>
+            ) : (
+              <LineChart
+                data={weeklyFinanceData}
+                margin={{ top: 5, right: 5, left: -25, bottom: 5 }}
+              >
+                <CartesianGrid strokeDasharray="3 3" stroke="#F1F5F9" vertical={false} />
+                <XAxis 
+                  dataKey="name" 
+                  stroke="#94A3B8" 
+                  fontSize={9} 
+                  tickLine={false} 
+                  axisLine={false}
+                />
+                <YAxis 
+                  stroke="#94A3B8" 
+                  fontSize={9} 
+                  tickLine={false} 
+                  axisLine={false}
+                  tickFormatter={(val) => val >= 1000000 ? `${(val / 1000000).toFixed(1)}jt` : val >= 1000 ? `${(val / 1000).toFixed(0)}rb` : val}
+                />
+                <Tooltip content={<CustomFinanceTooltip />} />
+                <Legend 
+                  verticalAlign="top" 
+                  height={24} 
+                  iconType="circle" 
+                  iconSize={6}
+                  wrapperStyle={{ fontSize: '9px', fontWeight: 'bold' }}
+                />
+                <Line name="Pemasukan" type="monotone" dataKey="Pemasukan" stroke="#10B981" strokeWidth={2.5} dot={{ r: 3 }} activeDot={{ r: 5 }} />
+                <Line name="Pengeluaran" type="monotone" dataKey="Pengeluaran" stroke="#F43F5E" strokeWidth={2.5} dot={{ r: 3 }} activeDot={{ r: 5 }} />
+              </LineChart>
+            )}
+          </ResponsiveContainer>
+        </div>
+
+        {/* Chart Summary Footnote */}
+        <div className="p-2.5 bg-slate-50 border border-slate-100 rounded-xl flex items-center justify-between text-[10px] text-slate-500 font-bold uppercase tracking-wider">
+          <div className="flex gap-2.5">
+            <span>In: <span className="text-emerald-600 font-extrabold">{formatRupiah(totalPemasukanWindow)}</span></span>
+            <span className="text-slate-300">|</span>
+            <span>Out: <span className="text-rose-600 font-extrabold">{formatRupiah(totalPengeluaranWindow)}</span></span>
+          </div>
+          <span className="text-[9px] text-indigo-600 lowercase bg-indigo-50/50 px-1.5 py-0.5 rounded-md">
+            selisih: {formatRupiah(totalPemasukanWindow - totalPengeluaranWindow)}
+          </span>
         </div>
       </div>
 
