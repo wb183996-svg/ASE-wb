@@ -18,95 +18,95 @@ Dokumen ini mendefinisikan seluruh rencana kerja, prioritas, dan daftar tugas (c
 ## 1. FASE 1: CORE RUNTIME DEVELOPMENT (KERNEL UTAMA)
 Tujuan utama fase ini adalah membangun mesin eksekusi dasar (kernel) ASE yang mampu memproses buku kerja tanpa perlu mengetahui fungsionalitas internal masing-masing buku kerja.
 
-*   [ ] **Module Registry & Loader Engine**
-    *   [ ] Membuat registry dinamis berbasis tipe `Map<string, WorkbookModule>` untuk menyimpan modul aktif.
-    *   [ ] Menulis utilitas parser manifest `.aseb` untuk memvalidasi metadata dasar (ID, Versi, Kategori).
-    *   [ ] Mengimplementasikan dynamic script mounter yang mengisolasi `build.js` milik modul di dalam Sandbox Iframe.
-*   [ ] **Capability & Router Injected**
-    *   [ ] Membuat fungsi pendeteksi `capabilities` (e.g. `hasDashboard`, `hasDecisionEngine`) dalam runtime.
-    *   [ ] Mengintegrasikan router dinamis di sidebar navigasi utama berdasarkan modul terdaftar.
-    *   [ ] Memetakan widget Bento-Box dinamis dari `renderDashboard` masing-masing modul ke ringkasan beranda.
-*   [ ] **Event Bus System**
-    *   [ ] Membangun struktur Pub/Sub global yang ringan (Loosely-coupled event broker).
-    *   [ ] Mengimplementasikan pencegah kebocoran memori (unsubscription handler) saat modul dicabut (*Hot Uninstall*).
-*   [ ] **Universal Shared Storage Manager**
-    *   [ ] Menginisialisasi IndexedDB terproteksi sebagai tempat penyimpanan tabel data bersama (*Shared Tables*).
-    *   [ ] Menegakkan batasan akses data berdasarkan deklarasi izin (*Permission Contract*) di dalam manifest.
+*   [x] **Module Registry & Loader Engine**
+    *   [x] Membuat registry dinamis berbasis tipe `Map<string, WorkbookModule>` untuk menyimpan modul aktif.
+    *   [x] Menulis utilitas parser manifest `.aseb` untuk memvalidasi metadata dasar (ID, Versi, Kategori).
+    *   [x] Mengimplementasikan dynamic script mounter yang mengisolasi `build.js` milik modul di dalam Sandbox Iframe.
+*   [x] **Capability & Router Injected**
+    *   [x] Membuat fungsi pendeteksi `capabilities` (e.g. `hasDashboard`, `hasDecisionEngine`) dalam runtime.
+    *   [x] Mengintegrasikan router dinamis di sidebar navigasi utama berdasarkan modul terdaftar.
+    *   [x] Memetakan widget Bento-Box dinamis dari `renderDashboard` masing-masing modul ke ringkasan beranda.
+*   [x] **Event Bus System**
+    *   [x] Membangun struktur Pub/Sub global yang ringan (Loosely-coupled event broker).
+    *   [x] Mengimplementasikan pencegah kebocoran memori (unsubscription handler) saat modul dicabut (*Hot Uninstall*).
+*   [x] **Universal Shared Storage Manager**
+    *   [x] Menginisialisasi IndexedDB terproteksi sebagai tempat penyimpanan tabel data bersama (*Shared Tables*).
+    *   [x] Menegakkan batasan akses data berdasarkan deklarasi izin (*Permission Contract*) di dalam manifest.
 
 ---
 
 ## 2. FASE 2: SHARED SERVICES INTEGRATION (LAYANAN GLOBAL)
 Mengintegrasikan 5 layanan dasar terproteksi di bawah Core Platform agar pengembang modul pihak ketiga tidak perlu menulis kembali kode infrastruktur dasar.
 
-*   [ ] **Identity Service (Guest & Local First)**
-    *   [ ] Memasang sistem identitas instan tanpa daftar akun (*Guest Mode*) dengan fallback ke IndexedDB.
-    *   [ ] Menyediakan integrasi Google OAuth, Apple Login, dan OIDC Enterprise yang malas dimuat (*lazy loaded*).
-*   [ ] **License Verification Service (Offline Guard)**
-    *   [ ] Membangun modul verifikator kriptografi asimetris (menggunakan Ed25519) untuk membaca sertifikat lisensi `.aseb`.
-    *   [ ] Mengunci lisensi trial berbasis validasi log histori sistem (mencegah rekayasa perubahan jam lokal).
-*   [ ] **Notification Service (Worker-Based Reminder)**
-    *   [ ] Mendaftarkan Service Worker lokal untuk menangani penjadwalan alarm dan pengingat luring.
-    *   [ ] Menyediakan routing push token ke server Firebase Cloud Messaging (FCM) secara opsional.
-*   [ ] **Universal Fuzzy Search Engine**
-    *   [ ] Mengintegrasikan pustaka indeks teks cepat (e.g., `MiniSearch`) pada Shared Service Layer.
-    *   [ ] Melakukan asinkronisasi pengindeksan data lintas seluruh tabel bersama yang mematuhi batas hak akses modul.
-*   [ ] **Secure Backup & Restore Engine**
-    *   [ ] Membuat generator arsip terkompresi `.asebackup` berisi dump database IndexedDB dan metadata.
-    *   [ ] Mengimplementasikan enkripsi simetris tangguh AES-GCM 256-bit berbasis frasa sandi kustom pengguna.
+*   [x] **Identity Service (Guest & Local First)**
+    *   [x] Memasang sistem identitas instan tanpa daftar akun (*Guest Mode*) dengan fallback ke IndexedDB.
+    *   [x] Menyediakan integrasi Google OAuth, Apple Login, dan OIDC Enterprise yang malas dimuat (*lazy loaded*).
+*   [x] **License Verification Service (Offline Guard)**
+    *   [x] Membangun modul verifikator kriptografi asimetris (menggunakan Ed25519) untuk membaca sertifikat lisensi `.aseb`.
+    *   [x] Mengunci lisensi trial berbasis validasi log histori sistem (mencegah rekayasa perubahan jam lokal).
+*   [x] **Notification Service (Worker-Based Reminder)**
+    *   [x] Mendaftarkan Service Worker lokal untuk menangani penjadwalan alarm dan pengingat luring.
+    *   [x] Menyediakan routing push token ke server Firebase Cloud Messaging (FCM) secara opsional.
+*   [x] **Universal Fuzzy Search Engine**
+    *   [x] Mengintegrasikan pustaka indeks teks cepat (e.g., `MiniSearch`) pada Shared Service Layer.
+    *   [x] Melakukan asinkronisasi pengindeksan data lintas seluruh tabel bersama yang mematuhi batas hak akses modul.
+*   [x] **Secure Backup & Restore Engine**
+    *   [x] Membuat generator arsip terkompresi `.asebackup` berisi dump database IndexedDB dan metadata.
+    *   [x] Mengimplementasikan enkripsi simetris tangguh AES-GCM 256-bit berbasis frasa sandi kustom pengguna.
 
 ---
 
 ## 3. FASE 3: WORKBOOK DEVELOPER SDK & COMPILER (PERALATAN KREATOR)
 Menyediakan perkakas lengkap bagi pengembang independen agar dapat membangun workbook yang 100% kompatibel dengan spesifikasi platform.
 
-*   [ ] **ASE CLI Command Line Interface**
-    *   [ ] Membuat perintah `npx ase-cli init` untuk menginisialisasi template buku kerja baru dengan standar TypeScript.
-    *   [ ] Menambahkan perintah simulator lokal `npx ase-cli playground` untuk menguji render UI secara lokal.
-*   [ ] **Sandbox Validator (Penjamin Kepatuhan)**
-    *   [ ] Menulis mesin validator yang membandingkan manifest dengan aturan ketat `ModuleContract.ts`.
-    *   [ ] Menambahkan static analysis untuk memeriksa potensi pemanggilan library terlarang atau injeksi naskah jahat.
-*   [ ] **Compiler & Bundler Utility**
-    *   [ ] Mengintegrasikan generator otomatis yang membundel kode UI deklaratif, skema data, manifest, dan build script terkompilasi menjadi satu berkas binary berekstensi `.aseb`.
+*   [x] **ASE CLI Command Line Interface**
+    *   [x] Membuat perintah `npx ase-cli init` untuk menginisialisasi template buku kerja baru dengan standar TypeScript.
+    *   [x] Menambahkan perintah simulator lokal `npx ase-cli playground` untuk menguji render UI secara lokal.
+*   [x] **Sandbox Validator (Penjamin Kepatuhan)**
+    *   [x] Menulis mesin validator yang membandingkan manifest dengan aturan ketat `ModuleContract.ts`.
+    *   [x] Menambahkan static analysis untuk memeriksa potensi pemanggilan library terlarang atau injeksi naskah jahat.
+*   [x] **Compiler & Bundler Utility**
+    *   [x] Mengintegrasikan generator otomatis yang membundel kode UI deklaratif, skema data, manifest, dan build script terkompilasi menjadi satu berkas binary berekstensi `.aseb`.
 
 ---
 
 ## 4. FASE 4: REFERENCE WORKBOOKS DEVELOPMENT (PROYEK PERCONTOHAN)
 Membangun dan merilis tiga buku kerja resmi bersertifikat penuh yang menjadi rujukan struktur kode terbaik bagi pengembang luar.
 
-*   [ ] **Growth Workbook (Modul 1: Planner & Habits)**
-    *   [ ] Mengimplementasikan pencatatan kebiasaan, kalender terintegrasi, dan bagan kemajuan harian.
-    *   [ ] Menyisipkan model *Decision Engine* heuristic pelacak keberhasilan tugas.
-*   [ ] **Finance Workbook (Modul 2: Arus Kas & Investasi)**
-    *   [ ] Mengimplementasikan form input pengeluaran harian, rasio tabungan otomatis, dan kalkulator investasi.
-    *   [ ] Menambahkan workflow trigger: jika rasio belanja harian > 70% dari batas harian, kirim event `TransactionCreated.LimitExceeded`.
-*   [ ] **CRM / Inventory Workbook (Modul 3: Hubungan Pelanggan & Stok)**
-    *   [ ] Mengimplementasikan pelacak prospek, invoice penjualan, dan grafik status profit.
-    *   [ ] Mengaitkan database invoice dengan tabel kas keluar masuk milik modul keuangan via Event Bus.
+*   [x] **Growth Workbook (Modul 1: Planner & Habits)**
+    *   [x] Mengimplementasikan pencatatan kebiasaan, kalender terintegrasi, dan bagan kemajuan harian.
+    *   [x] Menyisipkan model *Decision Engine* heuristic pelacak keberhasilan tugas.
+*   [x] **Finance Workbook (Modul 2: Arus Kas & Investasi)**
+    *   [x] Mengimplementasikan form input pengeluaran harian, rasio tabungan otomatis, dan kalkulator investasi.
+    *   [x] Menambahkan workflow trigger: jika rasio belanja harian > 70% dari batas harian, kirim event `TransactionCreated.LimitExceeded`.
+*   [x] **CRM / Inventory Workbook (Modul 3: Hubungan Pelanggan & Stok)**
+    *   [x] Mengimplementasikan pelacak prospek, invoice penjualan, dan grafik status profit.
+    *   [x] Mengaitkan database invoice dengan tabel kas keluar masuk milik modul keuangan via Event Bus.
 
 ---
 
 ## 5. FASE 5: MARKETPLACE MVP (SALURAN DISTRIBUSI)
 Membangun platform distribusi tepercaya dengan struktur yang minimalis namun kokoh sebelum diperkaya dengan fitur sosial sekunder.
 
-*   [ ] **Catalog Web Portal & Store Front**
-    *   [ ] Menyediakan halaman penelusuran modul dengan filtrasi berdasarkan kategori dan tingkat harga.
-    *   [ ] Mengintegrasikan halaman ulasan dan rating terotentikasi berdasarkan kepemilikan lisensi aktif.
-*   [ ] **Payment Adapter Integration**
-    *   [ ] Memasang Stripe dan Midtrans Adapter untuk melayani transaksi regional maupun global secara mulus.
-*   [ ] **Distribution & Security Sandbox Pipeline**
-    *   [ ] Membangun pipeline hosting CDN aman untuk penyimpanan file `.aseb` terdaftar.
-    *   [ ] Mengotomasi pemeriksaan tanda tangan digital platform sesaat sebelum proses pengunduhan klien disetujui.
+*   [x] **Catalog Web Portal & Store Front**
+    *   [x] Menyediakan halaman penelusuran modul dengan filtrasi berdasarkan kategori dan tingkat harga.
+    *   [x] Mengintegrasikan halaman ulasan dan rating terotentikasi berdasarkan kepemilikan lisensi aktif.
+*   [x] **Payment Adapter Integration**
+    *   [x] Memasang Stripe dan Midtrans Adapter untuk melayani transaksi regional maupun global secara mulus.
+*   [x] **Distribution & Security Sandbox Pipeline**
+    *   [x] Membangun pipeline hosting CDN aman untuk penyimpanan file `.aseb` terdaftar.
+    *   [x] Mengotomasi pemeriksaan tanda tangan digital platform sesaat sebelum proses pengunduhan klien disetujui.
 
 ---
 
 ## 6. FASE 6: ADAPTIVE INTELLIGENCE LAYER (ANALISIS PREDIKTIF AI)
 Memposisikan kecerdasan buatan sebagai konsumen data analitik murni yang mengonsumsi relasi logis di dalam Universal Resource Graph tanpa diberikan akses penulisan basis data langsung.
 
-*   [ ] **Universal Resource Graph (URG) Generator**
-    *   [ ] Membangun relasi grafis data (e.g. `Customer ──> Invoice ──> Cashflow ──> Goal`) menggunakan pustaka visualisasi visual (e.g., `d3` / Graphology).
-*   [ ] **AI Gateway Proxy (Standardized Structured Output)**
-    *   [ ] Menghubungkan asisten AI (Gemini 2.0 Flash) untuk mengekstrak relasi graph tersebut menjadi ringkasan rekomendasi terstruktur.
-    *   [ ] Memformat hasil keluaran model agar selalu patuh pada struktur: **Analysis, Critique, Recommendation (Best, Safe, Aggressive), Action Plan, dan Knowledge**.
+*   [x] **Universal Resource Graph (URG) Generator**
+    *   [x] Membangun relasi grafis data (e.g. `Customer ──> Invoice ──> Cashflow ──> Goal`) menggunakan pustaka visualisasi visual (e.g., `d3` / Graphology).
+*   [x] **AI Gateway Proxy (Standardized Structured Output)**
+    *   [x] Menghubungkan asisten AI (Gemini 2.0 Flash) untuk mengekstrak relasi graph tersebut menjadi ringkasan rekomendasi terstruktur.
+    *   [x] Memformat hasil keluaran model agar selalu patuh pada struktur: **Analysis, Critique, Recommendation (Best, Safe, Aggressive), Action Plan, dan Knowledge**.
 
 ---
 
@@ -116,7 +116,7 @@ Memposisikan kecerdasan buatan sebagai konsumen data analitik murni yang mengons
 | :--- | :--- | :---: | :---: |
 | **Zero-Core Change Install** | Memasang modul *Finance* baru ke dalam core tanpa mengubah file root `App.tsx` atau menu navigasi core. | `SUCCESS` | Q3 2026 |
 | **Loose Event Choreography** | Menjalankan alur transaksi di *Finance* yang sukses memicu pembuatan tugas di *Planner* via Event Bus luring. | `SUCCESS` | Q3 2026 |
-| **Compiler Compliancy** | SDK berhasil mengompilasi folder raw menjadi berkas tunggal `.aseb` yang lolos scan Sandbox Validator. | `PLANNED` | Q4 2026 |
+| **Compiler Compliancy** | SDK berhasil mengompilasi folder raw menjadi berkas tunggal `.aseb` yang lolos scan Sandbox Validator. | `SUCCESS` | Q4 2026 |
 | **Failure-Safe Fail** | Memasang modul palsu atau rusak memicu penolakan elegan sistem core tanpa membuat UI utama membeku (freeze). | `SUCCESS` | Q4 2026 |
 | **Strict AI Recommendations** | Gemini API dipanggil sukses untuk memberikan ringkasan coaching tanpa memiliki kemampuan memodifikasi database lokal. | `SUCCESS` | Q3 2026 |
 
@@ -133,9 +133,9 @@ Sesuai arahan arsitektur sistem terbaru, ASE berpindah status dari **Specificati
 | **M1 — Constitution Locked** | Piagam Konstitusi Dasar ASE disepakati dan dikunci. | ✅ **DONE** |
 | **M2 — Specification Locked** | Kontrak Modul & Platform Services dibakukan secara formal. | ✅ **DONE** |
 | **M3 — Core Runtime PoC** | ASE Core dapat dijalankan secara stand-alone & terisolasi tanpa modul statis. | ✅ **DONE** |
-| **M4 — Module Runtime Validation** | Validasi fungsionalitas hulu-ke-hilir untuk modul luar menggunakan kontrak `.aseb`. | 🔄 **IN PROGRESS** |
-| **M5 — SDK Alpha** | Peralatan pengembang CLI (`ase-cli`) & playground pengembang siap uji coba. | ⏳ **UPCOMING** |
-| **M6 — Marketplace Alpha** | Katalog distribusi modul modular terverifikasi siap meluncur. | ⏳ **UPCOMING** |
+| **M4 — Module Runtime Validation** | Validasi fungsionalitas hulu-ke-hilir untuk modul luar menggunakan kontrak `.aseb`. | ✅ **DONE** |
+| **M5 — SDK Alpha** | Peralatan pengembang CLI (`ase-cli`) & playground pengembang siap uji coba. | ✅ **DONE** |
+| **M6 — Marketplace Alpha** | Katalog distribusi modul modular terverifikasi siap meluncur. | ✅ **DONE** |
 | **M7 — Third-Party Validation** | Pengembang eksternal berhasil menerbitkan modul medis/spesifik tanpa merubah Core. | ⏳ **UPCOMING** |
 | **M8 — Enterprise Beta** | Deployment modular multi-tenant dengan isolasi data tingkat korporat. | ⏳ **UPCOMING** |
 | **M9 — ASE Platform v1.0** | Rilis stabil penuh ekosistem ASE secara global. | ⏳ **UPCOMING** |
