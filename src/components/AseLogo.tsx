@@ -7,145 +7,129 @@ interface AseLogoProps {
 }
 
 export default function AseLogo({ className = '', size = '100%', withBackground = true }: AseLogoProps) {
+  const pixelSize = typeof size === 'number' ? `${size}px` : size;
+
   return (
     <svg
-      width={size}
-      height={size}
+      width={pixelSize}
+      height={pixelSize}
       viewBox="0 0 512 512"
       fill="none"
       xmlns="http://www.w3.org/2000/svg"
-      className={`${className} select-none`}
-      aria-label="ASE Logo"
+      className={className}
+      aria-label="A⚡E Logo"
     >
       <defs>
-        {/* Background dark metallic gradient */}
-        <radialGradient
-          id="bgGrad"
-          cx="50%"
-          cy="50%"
-          r="70%"
-          fx="50%"
-          fy="50%"
-        >
-          <stop offset="0%" stopColor="#151E3D" />
-          <stop offset="60%" stopColor="#0B1021" />
-          <stop offset="100%" stopColor="#04060C" />
-        </radialGradient>
+        {/* Background dark navy / midnight blue gradient */}
+        <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stopColor="#050b18" />
+          <stop offset="50%" stopColor="#081026" />
+          <stop offset="100%" stopColor="#03050a" />
+        </linearGradient>
 
-        {/* Glow effect for lightning bolt */}
-        <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
+        {/* Silver / Metallic White Gradient for Letters A and E */}
+        <linearGradient id="metalGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+          <stop offset="0%" stopColor="#ffffff" />
+          <stop offset="30%" stopColor="#f1f5f9" />
+          <stop offset="70%" stopColor="#cbd5e1" />
+          <stop offset="100%" stopColor="#64748b" />
+        </linearGradient>
+
+        {/* Golden-orange Gradient for the Lightning Bolt */}
+        <linearGradient id="boltGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stopColor="#ffea00" />
+          <stop offset="40%" stopColor="#f59e0b" />
+          <stop offset="100%" stopColor="#ea580c" />
+        </linearGradient>
+
+        {/* Turquoise / Cyan / Mint Green Gradient for Circular Rings */}
+        <linearGradient id="ringGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stopColor="#00f2fe" />
+          <stop offset="50%" stopColor="#06b6d4" />
+          <stop offset="100%" stopColor="#10b981" />
+        </linearGradient>
+
+        {/* Glow and Shadow Filters for Premium 3D Feel */}
+        <filter id="boltGlow" x="-20%" y="-20%" width="140%" height="140%">
           <feGaussianBlur stdDeviation="8" result="blur" />
           <feComposite in="SourceGraphic" in2="blur" operator="over" />
         </filter>
 
-        {/* Soft shadow for letter contrast */}
-        <filter id="shadow" x="-10%" y="-10%" width="120%" height="120%">
-          <feDropShadow dx="2" dy="4" stdDeviation="6" floodColor="#000000" floodOpacity="0.6" />
+        <filter id="shadow3D" x="-10%" y="-10%" width="120%" height="120%">
+          <feDropShadow dx="0" dy="6" stdDeviation="6" floodColor="#000000" floodOpacity="0.6" />
         </filter>
 
-        {/* Lightning bolt gradient: vibrant yellow-orange */}
-        <linearGradient id="lightningGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-          <stop offset="0%" stopColor="#FFF275" />
-          <stop offset="40%" stopColor="#FFB300" />
-          <stop offset="100%" stopColor="#FF6D00" />
+        {/* Subtle Inner Bevel/Stroke effect for the container */}
+        <linearGradient id="borderGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stopColor="#ffffff" stopOpacity="0.15" />
+          <stop offset="100%" stopColor="#ffffff" stopOpacity="0.0" />
         </linearGradient>
-
-        {/* Letter A & E metallic gradient */}
-        <linearGradient id="metalGrad" x1="0%" y1="0%" x2="50%" y2="100%">
-          <stop offset="0%" stopColor="#FFFFFF" />
-          <stop offset="50%" stopColor="#E2E8F0" />
-          <stop offset="100%" stopColor="#CBD5E1" />
-        </linearGradient>
-
-        {/* Outer Ring gradient: Cyan-Teal-Emerald */}
-        <linearGradient id="ringGrad" x1="0%" y1="100%" x2="100%" y2="0%">
-          <stop offset="0%" stopColor="#00F2FE" />
-          <stop offset="50%" stopColor="#09F1B8" />
-          <stop offset="100%" stopColor="#10B981" />
-        </linearGradient>
-
-        {/* Outer Ring glow */}
-        <filter id="ringGlow" x="-10%" y="-10%" width="120%" height="120%">
-          <feGaussianBlur stdDeviation="3" result="blur" />
-          <feComposite in="SourceGraphic" in2="blur" operator="over" />
-        </filter>
       </defs>
 
-      {/* Background Squircle */}
+      {/* 1. Rounded Square Background (Apple-style) */}
       {withBackground && (
-        <rect
-          width="512"
-          height="512"
-          rx="110"
-          fill="url(#bgGrad)"
-          stroke="#1E293B"
-          strokeWidth="4"
-          className="shadow-inner"
-        />
+        <>
+          {/* Base rounded rect */}
+          <rect
+            x="4"
+            y="4"
+            width="504"
+            height="504"
+            rx="116"
+            fill="url(#bgGrad)"
+            stroke="url(#borderGrad)"
+            strokeWidth="3"
+            filter="drop-shadow(0 12px 24px rgba(0,0,0,0.4))"
+          />
+          {/* Subtle Glossy Bevel Sweep */}
+          <path
+            d="M 4,120 C 4,56 56,4 120,4 L 392,4 C 456,4 508,56 508,120 C 508,120 380,240 256,240 C 132,240 4,120 4,120 Z"
+            fill="#ffffff"
+            opacity="0.03"
+          />
+        </>
       )}
 
-      {/* Outer Ring - Cyan/Emerald with custom gaps (using two arc paths for perfect styling) */}
-      <g filter="url(#ringGlow)">
-        {/* Left-Bottom Arc */}
-        <path
-          d="M 125,385 A 190,190 0 0,1 115,190"
+      {/* Group holding content centered and scaled gracefully */}
+      <g filter="url(#shadow3D)">
+        {/* 2. Broken Circle (4 distinct curved arcs/segments) */}
+        {/* We use a radius of 170, centered at (256, 256) */}
+        <circle
+          cx="256"
+          cy="256"
+          r="170"
           stroke="url(#ringGrad)"
-          strokeWidth="10"
+          strokeWidth="12"
+          fill="none"
           strokeLinecap="round"
+          strokeDasharray="190 77"
+          strokeDashoffset="48"
+          transform="rotate(45 256 256)"
           opacity="0.85"
         />
+
+        {/* 3. Letter 'A' (Left element) */}
+        {/* Customized geometric, bold path for perfect alignment */}
         <path
-          d="M 145,410 A 190,190 0 0,1 135,420"
-          stroke="url(#ringGrad)"
-          strokeWidth="6"
-          strokeLinecap="round"
-          opacity="0.4"
+          d="M 94,326 L 132,186 C 133.5,181 136.5,180 140,180 L 158,180 C 161.5,180 164.5,181 166,186 L 204,326 C 205.5,331 202,336 196,336 L 174,336 C 170,336 167,333 166,329 L 157,294 L 141,294 L 132,329 C 131,333 128,336 124,336 L 102,336 C 96,336 92.5,331 94,326 Z M 149,230 L 144,260 L 154,260 Z"
+          fill="url(#metalGrad)"
         />
-        {/* Main continuous outer ring with precise gap placements matching the original */}
+
+        {/* 4. Letter 'E' (Right element) */}
+        {/* Symmetrical bold geometric E matching the grid */}
         <path
-          d="M 112,230 A 185,185 0 1,1 390,160"
-          stroke="url(#ringGrad)"
-          strokeWidth="10"
-          strokeLinecap="round"
+          d="M 308,186 C 308,181 312,180 317,180 L 410,180 C 414.5,180 417,183 417,187 L 417,207 C 417,211.5 414.5,214 410,214 L 344,214 L 344,234 L 388,234 C 392.5,234 395,237 395,241 L 395,261 C 395,265.5 392.5,268 388,268 L 344,268 L 344,292 L 410,292 C 414.5,292 417,295 417,299 L 417,319 C 417,323.5 414.5,326 410,326 L 317,326 C 312,326 308,322 308,317 Z"
+          fill="url(#metalGrad)"
         />
+
+        {/* 5. Lightning Bolt (⚡ Center Element - Dominant focus) */}
+        {/* Glow filter, golden gradient, symmetrical, taller than the letters */}
         <path
-          d="M 140,400 A 185,185 0 0,1 360,400"
-          stroke="url(#ringGrad)"
-          strokeWidth="10"
-          strokeLinecap="round"
+          d="M 276,136 L 210,250 L 256,250 L 236,376 L 302,262 L 256,262 Z"
+          fill="url(#boltGrad)"
+          filter="url(#boltGlow)"
         />
       </g>
-
-      {/* Styled Letter 'A' (Left, under shadow filter) */}
-      <path
-        d="M 100,340 L 195,175 H 240 L 222,275 H 178 L 170,340 H 122 Z M 184,240 L 191,202 L 210,240 Z"
-        fill="url(#metalGrad)"
-        filter="url(#shadow)"
-        fillRule="evenodd"
-      />
-
-      {/* Styled Letter 'E' (Right, under shadow filter) */}
-      <path
-        d="M 335,175 H 440 L 433,215 H 383 L 378,245 H 425 L 417,285 H 370 L 362,330 H 422 L 413,340 H 305 L 335,175 Z"
-        fill="url(#metalGrad)"
-        filter="url(#shadow)"
-      />
-
-      {/* Glow highlight for the Lightning Bolt */}
-      <path
-        d="M 338,80 L 215,252 H 312 L 210,398 L 320,215 H 242 L 338,80 Z"
-        fill="#FFE082"
-        opacity="0.3"
-        filter="url(#glow)"
-      />
-
-      {/* Core Lightning Bolt 'S' in Center (layered with vibrant gradient & glow) */}
-      <path
-        d="M 338,80 L 215,252 H 312 L 210,398 L 320,215 H 242 L 338,80 Z"
-        fill="url(#lightningGrad)"
-        filter="url(#shadow)"
-        className="transition-all duration-300 hover:brightness-110"
-      />
     </svg>
   );
 }
