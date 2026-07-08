@@ -4,6 +4,7 @@
  */
 
 import React, { useState, useEffect } from 'react';
+import { SyncService } from '../utils/syncService';
 import { 
   Cloud, 
   CloudUpload, 
@@ -129,6 +130,10 @@ export default function BackupAndSyncView({
   const [migrationInput, setMigrationInput] = useState('');
   const [migrationStatus, setMigrationStatus] = useState<'idle' | 'success' | 'error'>('idle');
 
+  // Cloud SQL Sync States
+  const [cloudSqlSyncStatus, setCloudSqlSyncStatus] = useState<'idle' | 'syncing' | 'success' | 'error'>('idle');
+  const [cloudSqlRecordsCount, setCloudSqlRecordsCount] = useState<number>(0);
+
   // Update states
   const [checkingUpdates, setCheckingUpdates] = useState(false);
   const [autoUpdate, setAutoUpdate] = useState(true);
@@ -147,6 +152,49 @@ export default function BackupAndSyncView({
     });
     return () => unsubscribe();
   }, []);
+
+  // Fetch Cloud SQL record count
+  useEffect(() => {
+    const session = IdentityModule.getCurrentSession();
+    if (session && session.token && currentUser) {
+      SyncService.fetchFinanceRecords(session.token)
+        .then(recs => setCloudSqlRecordsCount(recs.length))
+        .catch(err => console.error("Cloud SQL initial count error:", err));
+    }
+  }, [currentUser]);
+
+  // Cloud SQL Synchronization Trigger Handler
+  const handleCloudSqlSync = async () => {
+    const session = IdentityModule.getCurrentSession();
+    if (!session) {
+      alert("⚠️ Otentikasi Diperlukan!\nSilakan masuk terlebih dahulu di menu Pengaturan.");
+      return;
+    }
+
+    setCloudSqlSyncStatus('syncing');
+    try {
+      const serverFinance = await SyncService.fetchFinanceRecords(session.token);
+
+      if (serverFinance && serverFinance.length > 0) {
+        setFinanceRecords(serverFinance);
+        setCloudSqlRecordsCount(serverFinance.length);
+        alert(`✓ Sinkronisasi Cloud SQL Sukses!\n${serverFinance.length} entri keuangan ditarik dari Cloud SQL PostgreSQL ke penyimpanan lokal.`);
+      } else {
+        // Send all local financeRecords to server
+        for (const rec of financeRecords) {
+          await SyncService.saveFinanceRecord(session.token, rec);
+        }
+        setCloudSqlRecordsCount(financeRecords.length);
+        alert(`✓ Sinkronisasi Cloud SQL Sukses!\n${financeRecords.length} entri keuangan lokal didorong ke database Cloud SQL PostgreSQL.`);
+      }
+      setCloudSqlSyncStatus('success');
+      setTimeout(() => setCloudSqlSyncStatus('idle'), 3000);
+    } catch (err: any) {
+      console.error("Cloud SQL Sync error:", err);
+      setCloudSqlSyncStatus('error');
+      alert(`⚠️ Sinkronisasi Cloud SQL Gagal: ${err.message || err}`);
+    }
+  };
 
   // Fetch / Sync backups dynamically from Firestore
   useEffect(() => {
@@ -419,6 +467,50 @@ export default function BackupAndSyncView({
             <span>Koneksi pulih! 100% Data Bersama ASE Workbook berhasil disinkronkan secara aman.</span>
           </div>
         )}
+      </div>
+
+      {/* 1B. CLOUD SQL DATABASE SYNC ENGINE */}
+      <div className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm space-y-3.5">
+        <div className="flex justify-between items-center">
+          <h3 className="text-xs font-extrabold text-slate-800 uppercase flex items-center gap-1.5">
+            <ShieldCheck className="w-4.5 h-4.5 text-emerald-600" /> Cloud SQL Sync Engine
+          </h3>
+          <span className={`px-2 py-0.5 rounded text-[8px] font-black uppercase ${
+            currentUser ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-500'
+          }`}>
+            {currentUser ? '🛡️ Connected' : '🔑 Offline'}
+          </span>
+        </div>
+
+        <p className="text-[9px] text-slate-400 font-semibold leading-normal">
+          Persistensikan database buku kerja keuangan Anda ke relational database <strong>Cloud SQL PostgreSQL</strong> secara aman.
+        </p>
+
+        {currentUser && (
+          <div className="bg-slate-50 p-2.5 rounded-xl border border-slate-100 flex justify-between items-center text-[9px]">
+            <div>
+              <span className="text-slate-400 font-semibold block">Record Server Aktif</span>
+              <span className="text-slate-700 font-bold font-mono">{cloudSqlRecordsCount} entri keuangan</span>
+            </div>
+            <div className="text-right">
+              <span className="text-slate-400 font-semibold block">Database</span>
+              <span className="text-emerald-600 font-bold uppercase">Active PostgreSQL</span>
+            </div>
+          </div>
+        )}
+
+        <button
+          onClick={handleCloudSqlSync}
+          disabled={cloudSqlSyncStatus === 'syncing'}
+          className={`w-full py-2.5 text-white text-[10px] font-black rounded-xl transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
+            cloudSqlSyncStatus === 'syncing' 
+              ? 'bg-slate-300' 
+              : 'bg-emerald-600 hover:bg-emerald-700 shadow-sm shadow-emerald-100'
+          }`}
+        >
+          <RefreshCw className={`w-3.5 h-3.5 ${cloudSqlSyncStatus === 'syncing' ? 'animate-spin' : ''}`} />
+          {cloudSqlSyncStatus === 'syncing' ? 'Menyinkronkan dengan Cloud SQL...' : 'Sinkronkan Sekarang dengan Cloud SQL'}
+        </button>
       </div>
 
       {/* 2. CLOUD BACKUP MANAGER */}

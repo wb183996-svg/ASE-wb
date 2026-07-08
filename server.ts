@@ -5,6 +5,13 @@ import { createServer as createViteServer } from "vite";
 import { GoogleGenAI } from "@google/genai";
 import dotenv from "dotenv";
 
+// Import database, schemas, helpers, and auth middleware
+import { db } from "./src/db/index.ts";
+import { users, financeRecords, goals, dailyActivities } from "./src/db/schema.ts";
+import { requireAuth, AuthRequest } from "./src/middleware/auth.ts";
+import { getOrCreateUser } from "./src/db/users.ts";
+import { eq, desc } from "drizzle-orm";
+
 // Load environment variables
 dotenv.config();
 
@@ -12,6 +19,102 @@ dotenv.config();
 const isESM = typeof import.meta !== "undefined" && import.meta.url;
 const currentFile = isESM ? fileURLToPath(import.meta.url) : (typeof __filename !== "undefined" ? __filename : "");
 const currentDir = isESM ? path.dirname(currentFile) : (typeof __dirname !== "undefined" ? __dirname : process.cwd());
+
+// Database query layer helpers with robust error handling
+async function fetchUserFinanceRecords(dbUserId: number) {
+  try {
+    return await db.select()
+      .from(financeRecords)
+      .where(eq(financeRecords.userId, dbUserId))
+      .orderBy(desc(financeRecords.createdAt));
+  } catch (error) {
+    console.error("Database error fetching finance records:", error);
+    throw new Error("Failed to load finance records from database.", { cause: error });
+  }
+}
+
+async function insertFinanceRecord(dbUserId: number, record: { id: string, type: string, category: string, amount: number, date: string, note?: string }) {
+  try {
+    return await db.insert(financeRecords)
+      .values({
+        id: record.id,
+        userId: dbUserId,
+        type: record.type,
+        category: record.category,
+        amount: record.amount,
+        date: record.date,
+        note: record.note || '',
+      })
+      .returning();
+  } catch (error) {
+    console.error("Database error inserting finance record:", error);
+    throw new Error("Failed to save finance record to database.", { cause: error });
+  }
+}
+
+async function fetchUserGoals(dbUserId: number) {
+  try {
+    return await db.select()
+      .from(goals)
+      .where(eq(goals.userId, dbUserId))
+      .orderBy(desc(goals.createdAt));
+  } catch (error) {
+    console.error("Database error fetching goals:", error);
+    throw new Error("Failed to load goals from database.", { cause: error });
+  }
+}
+
+async function insertGoal(dbUserId: number, goal: { id: string, workbookId: string, workbookTitle: string, name: string, target: string, progress: number, deadline: string, status: string, recommendation?: string }) {
+  try {
+    return await db.insert(goals)
+      .values({
+        id: goal.id,
+        userId: dbUserId,
+        workbookId: goal.workbookId,
+        workbookTitle: goal.workbookTitle,
+        name: goal.name,
+        target: goal.target,
+        progress: goal.progress,
+        deadline: goal.deadline,
+        status: goal.status,
+        recommendation: goal.recommendation || '',
+      })
+      .returning();
+  } catch (error) {
+    console.error("Database error inserting goal:", error);
+    throw new Error("Failed to save goal to database.", { cause: error });
+  }
+}
+
+async function fetchUserActivities(dbUserId: number) {
+  try {
+    return await db.select()
+      .from(dailyActivities)
+      .where(eq(dailyActivities.userId, dbUserId));
+  } catch (error) {
+    console.error("Database error fetching activities:", error);
+    throw new Error("Failed to load activities from database.", { cause: error });
+  }
+}
+
+async function saveUserActivities(dbUserId: number, activitiesList: { day: string, minutes: number, completedTasks: number }[]) {
+  try {
+    await db.delete(dailyActivities).where(eq(dailyActivities.userId, dbUserId));
+    if (activitiesList.length > 0) {
+      await db.insert(dailyActivities).values(
+        activitiesList.map(act => ({
+          userId: dbUserId,
+          day: act.day,
+          minutes: act.minutes,
+          completedTasks: act.completedTasks,
+        }))
+      );
+    }
+  } catch (error) {
+    console.error("Database error saving activities:", error);
+    throw new Error("Failed to save activities to database.", { cause: error });
+  }
+}
 
 async function startServer() {
   const app = express();
@@ -33,6 +136,89 @@ async function startServer() {
   // API Endpoint: Health Check
   app.get("/api/health", (req, res) => {
     res.json({ status: "ok" });
+  });
+
+  // API Endpoint: Authenticated Profile & User Sync
+  app.get("/api/user/profile", requireAuth, async (req: AuthRequest, res) => {
+    try {
+      const email = req.user.email || `${req.user.uid}@ase.internal`;
+      const dbUser = await getOrCreateUser(req.user.uid, email);
+      res.json({ status: "success", user: dbUser });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message || "Failed to synchronize profile." });
+    }
+  });
+
+  // API Endpoint: Get and Create Finance Records
+  app.get("/api/finance", requireAuth, async (req: AuthRequest, res) => {
+    try {
+      const email = req.user.email || `${req.user.uid}@ase.internal`;
+      const dbUser = await getOrCreateUser(req.user.uid, email);
+      const records = await fetchUserFinanceRecords(dbUser.id);
+      res.json({ status: "success", records });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message || "Failed to fetch finance records." });
+    }
+  });
+
+  app.post("/api/finance", requireAuth, async (req: AuthRequest, res) => {
+    try {
+      const email = req.user.email || `${req.user.uid}@ase.internal`;
+      const dbUser = await getOrCreateUser(req.user.uid, email);
+      const { id, type, category, amount, date, note } = req.body;
+      const result = await insertFinanceRecord(dbUser.id, { id, type, category, amount, date, note });
+      res.json({ status: "success", record: result[0] });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message || "Failed to save finance record." });
+    }
+  });
+
+  // API Endpoint: Get and Create Goals
+  app.get("/api/goals", requireAuth, async (req: AuthRequest, res) => {
+    try {
+      const email = req.user.email || `${req.user.uid}@ase.internal`;
+      const dbUser = await getOrCreateUser(req.user.uid, email);
+      const goalsList = await fetchUserGoals(dbUser.id);
+      res.json({ status: "success", goals: goalsList });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message || "Failed to fetch goals." });
+    }
+  });
+
+  app.post("/api/goals", requireAuth, async (req: AuthRequest, res) => {
+    try {
+      const email = req.user.email || `${req.user.uid}@ase.internal`;
+      const dbUser = await getOrCreateUser(req.user.uid, email);
+      const { id, workbookId, workbookTitle, name, target, progress, deadline, status, recommendation } = req.body;
+      const result = await insertGoal(dbUser.id, { id, workbookId, workbookTitle, name, target, progress, deadline, status, recommendation });
+      res.json({ status: "success", goal: result[0] });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message || "Failed to save goal." });
+    }
+  });
+
+  // API Endpoint: Get and Save Daily Activities
+  app.get("/api/activities", requireAuth, async (req: AuthRequest, res) => {
+    try {
+      const email = req.user.email || `${req.user.uid}@ase.internal`;
+      const dbUser = await getOrCreateUser(req.user.uid, email);
+      const list = await fetchUserActivities(dbUser.id);
+      res.json({ status: "success", activities: list });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message || "Failed to fetch activities." });
+    }
+  });
+
+  app.post("/api/activities", requireAuth, async (req: AuthRequest, res) => {
+    try {
+      const email = req.user.email || `${req.user.uid}@ase.internal`;
+      const dbUser = await getOrCreateUser(req.user.uid, email);
+      const { activities } = req.body;
+      await saveUserActivities(dbUser.id, activities);
+      res.json({ status: "success", message: "Activities synced successfully." });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message || "Failed to sync activities." });
+    }
   });
 
   // API Endpoint: AI Insight Generator

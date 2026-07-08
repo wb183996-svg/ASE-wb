@@ -18,6 +18,7 @@ import { Plus } from 'lucide-react';
 import QuickInputModal from './components/QuickInputModal';
 import { IdentityModule } from './core/IdentityService';
 import { aseKernelInstance } from './core/Kernel';
+import { SyncService } from './utils/syncService';
 
 import { 
   Workbook, 
@@ -440,6 +441,36 @@ export default function App() {
     });
     return () => unsubscribe();
   }, []);
+
+  // Automatic Cloud SQL Pull on Login
+  useEffect(() => {
+    const session = IdentityModule.getCurrentSession();
+    if (session && session.token && user.uid) {
+      const fetchCloudData = async () => {
+        try {
+          const [serverFinance, serverGoals, serverActivities] = await Promise.all([
+            SyncService.fetchFinanceRecords(session.token),
+            SyncService.fetchGoals(session.token),
+            SyncService.fetchActivities(session.token)
+          ]);
+
+          if (serverFinance && serverFinance.length > 0) {
+            setFinanceRecords(serverFinance);
+          }
+          if (serverGoals && serverGoals.length > 0) {
+            setGoals(serverGoals);
+          }
+          if (serverActivities && serverActivities.length > 0) {
+            setActivity(serverActivities);
+          }
+          aseKernelInstance.log('success', 'Database', 'Cloud SQL synchronized on active session load.');
+        } catch (err) {
+          console.error("Failed to fetch initial Cloud SQL data:", err);
+        }
+      };
+      fetchCloudData();
+    }
+  }, [user.uid]);
 
   // Purchase/Activation flow
   const handlePurchaseWorkbook = (wbId: string, pricePaid: number, discountApplied: number, paymentMethod: string) => {
