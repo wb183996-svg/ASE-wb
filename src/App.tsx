@@ -19,6 +19,8 @@ import QuickInputModal from './components/QuickInputModal';
 import { IdentityModule } from './core/IdentityService';
 import { aseKernelInstance } from './core/Kernel';
 import { SyncService } from './utils/syncService';
+import { doc, getDoc, setDoc } from 'firebase/firestore';
+import { db } from './lib/firebase';
 
 import { 
   Workbook, 
@@ -143,11 +145,12 @@ export default function App() {
     );
   };
 
-  // Load Initial mock data with rich marketplace configurations
-  useEffect(() => {
+  // State load indicator to prevent save overrides during startup loading
+  const [isLoaded, setIsLoaded] = useState(false);
+  const [activeSession, setActiveSession] = useState<any>(null);
+
+  const getInitializedDefaultState = () => {
     const initialWbs = JSON.parse(JSON.stringify(EXPLORE_WORKBOOKS)) as Workbook[];
-    
-    // Enrich workbooks with prices, discount codes, screenshots, reviews, updates, etc.
     const enrichedWbs = initialWbs.map((wb) => {
       if (wb.id === 'wb-keuangan') {
         wb.price = 0;
@@ -287,7 +290,6 @@ export default function App() {
           { version: 'v1.0.0', date: '01 May 2026', note: 'Rilis perdana modul hubungan.' }
         ];
       } else {
-        // Fallbacks for dynamically published workbooks
         wb.price = wb.price || 0;
         wb.licenseStatus = wb.isDownloaded ? 'Dimiliki' : (wb.price > 0 ? 'Belum Dimiliki' : 'Gratis');
         wb.downloadsCount = wb.downloadsCount || 0;
@@ -298,45 +300,218 @@ export default function App() {
       return wb;
     });
 
-    setWorkbooks(enrichedWbs);
-    setActivity(JSON.parse(JSON.stringify(INITIAL_ACTIVITY)));
-    setFinanceRecords(JSON.parse(JSON.stringify(INITIAL_FINANCE_RECORDS)));
-    setTaskRecords(JSON.parse(JSON.stringify(INITIAL_TASK_RECORDS)));
-    setHabitRecords(JSON.parse(JSON.stringify(INITIAL_HABIT_RECORDS)));
-    setCrmRecords(JSON.parse(JSON.stringify(INITIAL_CRM_RECORDS)));
-    setTradingRecords(JSON.parse(JSON.stringify(INITIAL_TRADING_RECORDS)));
-    setOkrRecords(JSON.parse(JSON.stringify(INITIAL_OKR_RECORDS)));
-    setRelationshipRecords(JSON.parse(JSON.stringify(INITIAL_RELATIONSHIP_RECORDS)));
-    setSharedContacts(JSON.parse(JSON.stringify(INITIAL_SHARED_CONTACTS)));
-    setGoals(JSON.parse(JSON.stringify(INITIAL_GOALS)));
-    setTimeline(JSON.parse(JSON.stringify(INITIAL_TIMELINE)));
+    return {
+      workbooks: enrichedWbs,
+      activity: JSON.parse(JSON.stringify(INITIAL_ACTIVITY)),
+      financeRecords: JSON.parse(JSON.stringify(INITIAL_FINANCE_RECORDS)),
+      taskRecords: JSON.parse(JSON.stringify(INITIAL_TASK_RECORDS)),
+      habitRecords: JSON.parse(JSON.stringify(INITIAL_HABIT_RECORDS)),
+      crmRecords: JSON.parse(JSON.stringify(INITIAL_CRM_RECORDS)),
+      tradingRecords: JSON.parse(JSON.stringify(INITIAL_TRADING_RECORDS)),
+      okrRecords: JSON.parse(JSON.stringify(INITIAL_OKR_RECORDS)),
+      relationshipRecords: JSON.parse(JSON.stringify(INITIAL_RELATIONSHIP_RECORDS)),
+      sharedContacts: JSON.parse(JSON.stringify(INITIAL_SHARED_CONTACTS)),
+      goals: JSON.parse(JSON.stringify(INITIAL_GOALS)),
+      timeline: JSON.parse(JSON.stringify(INITIAL_TIMELINE)),
+      purchases: [
+        {
+          id: 'TX-7839201',
+          workbookId: 'wb-keuangan',
+          workbookTitle: 'Keuangan Pribadi',
+          purchaseDate: '2026-06-15 10:24',
+          pricePaid: 0,
+          discountApplied: 0,
+          paymentMethod: 'Gratis (Sistem)',
+          transactionNumber: 'ASE-TX-10029304',
+          status: 'Berhasil'
+        },
+        {
+          id: 'TX-7839202',
+          workbookId: 'wb-planner',
+          workbookTitle: 'Planner Harian & Time Blocking',
+          purchaseDate: '2026-06-20 14:15',
+          pricePaid: 0,
+          discountApplied: 0,
+          paymentMethod: 'Gratis (Sistem)',
+          transactionNumber: 'ASE-TX-10029305',
+          status: 'Berhasil'
+        }
+      ] as PurchaseRecord[]
+    };
+  };
 
-    // Load initial purchases history
-    setPurchases([
-      {
-        id: 'TX-7839201',
-        workbookId: 'wb-keuangan',
-        workbookTitle: 'Keuangan Pribadi',
-        purchaseDate: '2026-06-15 10:24',
-        pricePaid: 0,
-        discountApplied: 0,
-        paymentMethod: 'Gratis (Sistem)',
-        transactionNumber: 'ASE-TX-10029304',
-        status: 'Berhasil'
-      },
-      {
-        id: 'TX-7839202',
-        workbookId: 'wb-planner',
-        workbookTitle: 'Planner Harian & Time Blocking',
-        purchaseDate: '2026-06-20 14:15',
-        pricePaid: 0,
-        discountApplied: 0,
-        paymentMethod: 'Gratis (Sistem)',
-        transactionNumber: 'ASE-TX-10029305',
-        status: 'Berhasil'
+  // Reactive state load-sync engine
+  useEffect(() => {
+    if (isLoaded) return;
+
+    const loadData = async () => {
+      if (activeSession) {
+        try {
+          aseKernelInstance.log('info', 'Database', `Mencari data cloud real Firestore untuk pengguna "${activeSession.user.name}"...`);
+          const docRef = doc(db, 'user_states', activeSession.user.uid);
+          const docSnap = await getDoc(docRef);
+
+          if (docSnap.exists()) {
+            const cloudData = docSnap.data();
+            if (cloudData.workbooks) setWorkbooks(cloudData.workbooks);
+            if (cloudData.activity) setActivity(cloudData.activity);
+            if (cloudData.financeRecords) setFinanceRecords(cloudData.financeRecords);
+            if (cloudData.taskRecords) setTaskRecords(cloudData.taskRecords);
+            if (cloudData.habitRecords) setHabitRecords(cloudData.habitRecords);
+            if (cloudData.crmRecords) setCrmRecords(cloudData.crmRecords);
+            if (cloudData.tradingRecords) setTradingRecords(cloudData.tradingRecords);
+            if (cloudData.okrRecords) setOkrRecords(cloudData.okrRecords);
+            if (cloudData.relationshipRecords) setRelationshipRecords(cloudData.relationshipRecords);
+            if (cloudData.sharedContacts) setSharedContacts(cloudData.sharedContacts);
+            if (cloudData.goals) setGoals(cloudData.goals);
+            if (cloudData.timeline) setTimeline(cloudData.timeline);
+            if (cloudData.purchases) setPurchases(cloudData.purchases);
+            if (cloudData.themeColor) setThemeColor(cloudData.themeColor);
+            if (cloudData.language) setLanguage(cloudData.language);
+            
+            aseKernelInstance.log('success', 'Database', `Berhasil mengunduh data nyata dari Firestore cloud untuk "${activeSession.user.name}".`);
+          } else {
+            aseKernelInstance.log('info', 'Database', `Membuat basis data awan Firestore baru untuk "${activeSession.user.name}"...`);
+            const defaultState = getInitializedDefaultState();
+            setWorkbooks(defaultState.workbooks);
+            setActivity(defaultState.activity);
+            setFinanceRecords(defaultState.financeRecords);
+            setTaskRecords(defaultState.taskRecords);
+            setHabitRecords(defaultState.habitRecords);
+            setCrmRecords(defaultState.crmRecords);
+            setTradingRecords(defaultState.tradingRecords);
+            setOkrRecords(defaultState.okrRecords);
+            setRelationshipRecords(defaultState.relationshipRecords);
+            setSharedContacts(defaultState.sharedContacts);
+            setGoals(defaultState.goals);
+            setTimeline(defaultState.timeline);
+            setPurchases(defaultState.purchases);
+
+            await setDoc(docRef, {
+              ...defaultState,
+              updatedAt: new Date().toISOString()
+            });
+            aseKernelInstance.log('success', 'Database', `Inisialisasi dokumen database awan Firestore selesai.`);
+          }
+        } catch (err) {
+          console.error("Gagal memuat dari Firestore:", err);
+          loadDefaults();
+        }
+      } else {
+        // Guest mode
+        const localSaved = localStorage.getItem('ase_guest_app_state');
+        if (localSaved) {
+          try {
+            const localData = JSON.parse(localSaved);
+            if (localData.workbooks) setWorkbooks(localData.workbooks);
+            if (localData.activity) setActivity(localData.activity);
+            if (localData.financeRecords) setFinanceRecords(localData.financeRecords);
+            if (localData.taskRecords) setTaskRecords(localData.taskRecords);
+            if (localData.habitRecords) setHabitRecords(localData.habitRecords);
+            if (localData.crmRecords) setCrmRecords(localData.crmRecords);
+            if (localData.tradingRecords) setTradingRecords(localData.tradingRecords);
+            if (localData.okrRecords) setOkrRecords(localData.okrRecords);
+            if (localData.relationshipRecords) setRelationshipRecords(localData.relationshipRecords);
+            if (localData.sharedContacts) setSharedContacts(localData.sharedContacts);
+            if (localData.goals) setGoals(localData.goals);
+            if (localData.timeline) setTimeline(localData.timeline);
+            if (localData.purchases) setPurchases(localData.purchases);
+            if (localData.themeColor) setThemeColor(localData.themeColor);
+            if (localData.language) setLanguage(localData.language);
+            
+            aseKernelInstance.log('success', 'Database', `Berhasil memuat data lokal terenkripsi (localStorage) untuk Guest.`);
+          } catch (err) {
+            console.error("Gagal memuat localSaved:", err);
+            loadDefaults();
+          }
+        } else {
+          loadDefaults();
+        }
       }
-    ]);
-  }, []);
+      setIsLoaded(true);
+    };
+
+    const loadDefaults = () => {
+      const defaultState = getInitializedDefaultState();
+      setWorkbooks(defaultState.workbooks);
+      setActivity(defaultState.activity);
+      setFinanceRecords(defaultState.financeRecords);
+      setTaskRecords(defaultState.taskRecords);
+      setHabitRecords(defaultState.habitRecords);
+      setCrmRecords(defaultState.crmRecords);
+      setTradingRecords(defaultState.tradingRecords);
+      setOkrRecords(defaultState.okrRecords);
+      setRelationshipRecords(defaultState.relationshipRecords);
+      setSharedContacts(defaultState.sharedContacts);
+      setGoals(defaultState.goals);
+      setTimeline(defaultState.timeline);
+      setPurchases(defaultState.purchases);
+      aseKernelInstance.log('info', 'Database', 'Memuat pola buku default untuk instans baru.');
+    };
+
+    loadData();
+  }, [activeSession, isLoaded]);
+
+  // Reactive auto-save engine
+  useEffect(() => {
+    if (!isLoaded) return;
+
+    const dataToSave = {
+      workbooks,
+      activity,
+      financeRecords,
+      taskRecords,
+      habitRecords,
+      crmRecords,
+      tradingRecords,
+      okrRecords,
+      relationshipRecords,
+      sharedContacts,
+      goals,
+      timeline,
+      purchases,
+      themeColor,
+      language,
+      user
+    };
+
+    if (activeSession) {
+      const delayDebounceFn = setTimeout(async () => {
+        try {
+          await setDoc(doc(db, 'user_states', activeSession.user.uid), {
+            ...dataToSave,
+            updatedAt: new Date().toISOString()
+          }, { merge: true });
+          aseKernelInstance.log('success', 'Database', `Auto-saved real workbook changes to Firestore cloud.`);
+        } catch (err) {
+          console.error("Gagal auto-save ke Firestore:", err);
+        }
+      }, 1000);
+
+      return () => clearTimeout(delayDebounceFn);
+    } else {
+      localStorage.setItem('ase_guest_app_state', JSON.stringify(dataToSave));
+    }
+  }, [
+    isLoaded,
+    workbooks,
+    activity,
+    financeRecords,
+    taskRecords,
+    habitRecords,
+    crmRecords,
+    tradingRecords,
+    okrRecords,
+    relationshipRecords,
+    sharedContacts,
+    goals,
+    timeline,
+    purchases,
+    themeColor,
+    language,
+    user,
+    activeSession
+  ]);
 
   // Decoupled Interoperability Subscriptions (Fase 4: Interoperability Proof)
   useEffect(() => {
@@ -419,6 +594,7 @@ export default function App() {
   // Subscribe to Identity Module authentication sessions
   useEffect(() => {
     const unsubscribe = IdentityModule.subscribe((session) => {
+      setActiveSession(session);
       if (session) {
         setUser({
           name: session.user.name,
@@ -438,39 +614,10 @@ export default function App() {
           workspaceMode: 'Individu'
         });
       }
+      setIsLoaded(false);
     });
     return () => unsubscribe();
   }, []);
-
-  // Automatic Cloud SQL Pull on Login
-  useEffect(() => {
-    const session = IdentityModule.getCurrentSession();
-    if (session && session.token && user.uid) {
-      const fetchCloudData = async () => {
-        try {
-          const [serverFinance, serverGoals, serverActivities] = await Promise.all([
-            SyncService.fetchFinanceRecords(session.token),
-            SyncService.fetchGoals(session.token),
-            SyncService.fetchActivities(session.token)
-          ]);
-
-          if (serverFinance && serverFinance.length > 0) {
-            setFinanceRecords(serverFinance);
-          }
-          if (serverGoals && serverGoals.length > 0) {
-            setGoals(serverGoals);
-          }
-          if (serverActivities && serverActivities.length > 0) {
-            setActivity(serverActivities);
-          }
-          aseKernelInstance.log('success', 'Database', 'Cloud SQL synchronized on active session load.');
-        } catch (err) {
-          console.error("Failed to fetch initial Cloud SQL data:", err);
-        }
-      };
-      fetchCloudData();
-    }
-  }, [user.uid]);
 
   // Purchase/Activation flow
   const handlePurchaseWorkbook = (wbId: string, pricePaid: number, discountApplied: number, paymentMethod: string) => {
@@ -574,25 +721,61 @@ export default function App() {
   };
 
   // Reset all application state back to default
-  const handleResetData = () => {
-    setWorkbooks(JSON.parse(JSON.stringify(EXPLORE_WORKBOOKS)));
-    setActivity(JSON.parse(JSON.stringify(INITIAL_ACTIVITY)));
-    setFinanceRecords(JSON.parse(JSON.stringify(INITIAL_FINANCE_RECORDS)));
-    setTaskRecords(JSON.parse(JSON.stringify(INITIAL_TASK_RECORDS)));
-    setHabitRecords(JSON.parse(JSON.stringify(INITIAL_HABIT_RECORDS)));
-    setCrmRecords(JSON.parse(JSON.stringify(INITIAL_CRM_RECORDS)));
-    setTradingRecords(JSON.parse(JSON.stringify(INITIAL_TRADING_RECORDS)));
-    setOkrRecords(JSON.parse(JSON.stringify(INITIAL_OKR_RECORDS)));
-    setRelationshipRecords(JSON.parse(JSON.stringify(INITIAL_RELATIONSHIP_RECORDS)));
-    setSharedContacts(JSON.parse(JSON.stringify(INITIAL_SHARED_CONTACTS)));
+  const handleResetData = async () => {
+    if (!window.confirm("Apakah Anda yakin ingin menyetel ulang semua data? Semua perubahan data Anda akan hilang.")) return;
+    
+    const defaultState = getInitializedDefaultState();
+    setWorkbooks(defaultState.workbooks);
+    setActivity(defaultState.activity);
+    setFinanceRecords(defaultState.financeRecords);
+    setTaskRecords(defaultState.taskRecords);
+    setHabitRecords(defaultState.habitRecords);
+    setCrmRecords(defaultState.crmRecords);
+    setTradingRecords(defaultState.tradingRecords);
+    setOkrRecords(defaultState.okrRecords);
+    setRelationshipRecords(defaultState.relationshipRecords);
+    setSharedContacts(defaultState.sharedContacts);
+    setGoals(defaultState.goals);
+    setTimeline(defaultState.timeline);
+    setPurchases(defaultState.purchases);
     setSelectedWbId(null);
     setCurrentView('beranda');
     setUser({
       name: 'Prasetyo',
       role: 'Profesional Kreatif',
       avatarId: 'male',
+      workspaceMode: 'Individu'
     });
     setThemeColor('emerald');
+    setLanguage('id');
+
+    // Persist Reset State
+    if (activeSession) {
+      try {
+        await setDoc(doc(db, 'user_states', activeSession.user.uid), {
+          ...defaultState,
+          themeColor: 'emerald',
+          language: 'id',
+          user: {
+            name: activeSession.user.name,
+            role: activeSession.user.role === 'SysAdmin' ? 'Manajer Proyek / Tim' : activeSession.user.role === 'Publisher' ? 'Wirausaha Mandiri' : 'Profesional Kreatif',
+            avatarId: activeSession.provider === 'google' ? 'male' : 'female',
+            workspaceMode: activeSession.user.workspaceMode || 'Individu',
+            email: activeSession.user.email,
+            uid: activeSession.user.uid,
+            provider: activeSession.provider
+          },
+          updatedAt: new Date().toISOString()
+        });
+        aseKernelInstance.log('success', 'Database', 'Cleared cloud user state on Firestore.');
+      } catch (err) {
+        console.error("Gagal menyetel ulang Firestore:", err);
+      }
+    } else {
+      localStorage.removeItem('ase_guest_app_state');
+    }
+
+    alert('Seluruh data instansi Anda berhasil diatur ulang ke kondisi default secara nyata.');
   };
 
   // Determine current screen title based on view selection

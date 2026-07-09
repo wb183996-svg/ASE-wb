@@ -18,5 +18,10 @@ service cloud.firestore {
       allow read, create, update: if true;
       allow delete: if false;
     }
+
+    // User states collection rules: anyone can read, write user states
+    match /user_states/{docId} {
+      allow read, write: if true;
+    }
   }
 }

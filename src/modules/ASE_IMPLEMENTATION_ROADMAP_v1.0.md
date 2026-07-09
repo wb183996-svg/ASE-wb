@@ -136,9 +136,9 @@ Sesuai arahan arsitektur sistem terbaru, ASE berpindah status dari **Specificati
 | **M4 — Module Runtime Validation** | Validasi fungsionalitas hulu-ke-hilir untuk modul luar menggunakan kontrak `.aseb`. | ✅ **DONE** |
 | **M5 — SDK Alpha** | Peralatan pengembang CLI (`ase-cli`) & playground pengembang siap uji coba. | ✅ **DONE** |
 | **M6 — Marketplace Alpha** | Katalog distribusi modul modular terverifikasi siap meluncur. | ✅ **DONE** |
-| **M7 — Third-Party Validation** | Pengembang eksternal berhasil menerbitkan modul medis/spesifik tanpa merubah Core. | ⏳ **UPCOMING** |
-| **M8 — Enterprise Beta** | Deployment modular multi-tenant dengan isolasi data tingkat korporat. | ⏳ **UPCOMING** |
-| **M9 — ASE Platform v1.0** | Rilis stabil penuh ekosistem ASE secara global. | ⏳ **UPCOMING** |
+| **M7 — Third-Party Validation** | Pengembang eksternal berhasil menerbitkan modul medis/spesifik tanpa merubah Core. | ✅ **DONE** |
+| **M8 — Enterprise Beta** | Deployment modular multi-tenant dengan isolasi data tingkat korporat. | ✅ **DONE** |
+| **M9 — ASE Platform v1.0** | Rilis stabil penuh ekosistem ASE secara global. | ✅ **DONE** |
 
 ---
 

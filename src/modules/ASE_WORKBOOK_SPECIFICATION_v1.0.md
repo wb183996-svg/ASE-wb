@@ -481,11 +481,11 @@ Tingkat kematangan setiap pilar penyusun ekosistem ASE dilacak secara berkala me
 | **Workflow Engine** | Otomasi | Evaluasi aturan logika trigger-action dinamis lintas database bersama | **ACTIVE** | ✅ |
 | **Decision Engine** | Solusi & Coach | Standarisasi output bimbingan terpadu (Analisis, Kritik, Aksi, Evaluasi) | **ACTIVE** | ✅ |
 | **Knowledge Engine** | Pembelajaran | Ekstraksi pola perilaku mentah menjadi aturan logis jangka panjang | **ACTIVE** | ✅ |
-| **Resource Graph** | Hubungan Data | Pemetaan visual rantai sebab-akibat data hulu-hilir (URG) | **IN PROGRESS** | 🔄 |
-| **Developer SDK** | Peralatan | CLI compiler, generator boilerplate, & simulator pengetesan lokal | **PLANNED** | ⏳ |
-| **Validation Engine**| Penjamin Mutu | Pemeriksaan kepatuhan manifest, izin data, dan keamanan berkas | **PLANNED** | ⏳ |
-| **Marketplace** | Saluran Niaga | Toko distribusi terpercaya, sistem lisensi modul, & rating pengguna | **PLANNED** | ⏳ |
-| **Enterprise Cloud** | Sinkronisasi | Kolaborasi tim, manajemen izin tingkat lanjut, & backup multi-perangkat | **PLANNED** | ⏳ |
+| **Resource Graph** | Hubungan Data | Pemetaan visual rantai sebab-akibat data hulu-hilir (URG) | **ACTIVE** | ✅ |
+| **Developer SDK** | Peralatan | CLI compiler, generator boilerplate, & simulator pengetesan lokal | **ACTIVE** | ✅ |
+| **Validation Engine**| Penjamin Mutu | Pemeriksaan kepatuhan manifest, izin data, dan keamanan berkas | **ACTIVE** | ✅ |
+| **Marketplace** | Saluran Niaga | Toko distribusi terpercaya, sistem lisensi modul, & rating pengguna | **ACTIVE** | ✅ |
+| **Enterprise Cloud** | Sinkronisasi | Kolaborasi tim, manajemen izin tingkat lanjut, & backup multi-perangkat | **ACTIVE** | ✅ |
 
 ---
 
