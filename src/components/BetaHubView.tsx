@@ -1923,6 +1923,90 @@ API Error Rate: ${errorRate}%`;
             </div>
           )}
 
+          {/* TROUBLESHOOTING APK SECTION */}
+          <div className="bg-amber-50/70 border-2 border-amber-200/80 p-5 rounded-3xl space-y-4 shadow-xs">
+            <div className="flex items-start gap-3">
+              <div className="w-10 h-10 bg-amber-100 text-amber-800 rounded-xl flex items-center justify-center shrink-0">
+                <AlertCircle className="w-5 h-5" />
+              </div>
+              <div className="space-y-1">
+                <h4 className="font-extrabold text-xs text-amber-900">
+                  🔧 Panduan Solusi: "Ada Masalah Saat Mengurai Paket" (Parse Error) pada Android
+                </h4>
+                <p className="text-[10px] text-amber-800 font-medium leading-relaxed">
+                  Apabila Anda menemui pesan kesalahan penguraian paket saat menginstal berkas APK di perangkat fisik atau simulator Android, berikut adalah penyebab dan solusi langkah demi langkah:
+                </p>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5 pt-1">
+              {/* Penyebab & Solusi Sandbox */}
+              <div className="bg-white p-3.5 rounded-2xl border border-amber-100 shadow-2xs space-y-2">
+                <h5 className="font-black text-[10.5px] text-amber-900 flex items-center gap-1.5">
+                  <span className="w-2 h-2 rounded-full bg-amber-500 shrink-0"></span>
+                  1. Penyebab Utama (Aset Simulasi Sandbox)
+                </h5>
+                <p className="text-slate-600 text-[9.5px] leading-relaxed">
+                  Berkas <span className="font-mono bg-slate-100 text-rose-600 px-1 py-0.2 rounded font-bold">ASE-v1.5.0-beta.1.apk</span> yang diunduh langsung dari web sandbox ini adalah <strong>berkas tiruan (placeholder/mockup)</strong> berukuran 86 bita, bukan berkas biner Android riil. Android tidak dapat menguraikan berkas teks kecil ini, sehingga menimbulkan error <span className="italic font-bold">Parse Error</span>.
+                </p>
+                <div className="pt-1 font-bold text-[9px] text-indigo-700 leading-snug">
+                  💡 Solusi: Gunakan opsi <span className="underline font-black">GitHub Releases</span> di atas, hubungkan repositori aktif Anda, lalu unduh biner APK fisik asli hasil kompilasi sistem Anda.
+                </div>
+              </div>
+
+              {/* Solusi Build Mandiri */}
+              <div className="bg-white p-3.5 rounded-2xl border border-amber-100 shadow-2xs space-y-2">
+                <h5 className="font-black text-[10.5px] text-amber-900 flex items-center gap-1.5">
+                  <span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0"></span>
+                  2. Solusi Kompilasi Mandiri (Build APK Lokal)
+                </h5>
+                <p className="text-slate-600 text-[9.5px] leading-relaxed">
+                  Proyek ini memiliki folder native <span className="font-mono bg-slate-100 text-slate-800 px-1 py-0.2 rounded">/android</span> berbasis Capacitor. Anda dapat membuat file APK valid yang sepenuhnya kompatibel dengan HP Anda dengan perintah terminal berikut di komputer lokal:
+                </p>
+                <div className="bg-slate-900 text-slate-300 p-2 rounded-xl font-mono text-[8px] leading-relaxed space-y-0.5 overflow-x-auto">
+                  <p className="text-slate-500"># 1. Pasang dependensi & sinkronisasi</p>
+                  <p><span className="text-emerald-400">npm</span> install</p>
+                  <p><span className="text-emerald-400">npx</span> cap sync android</p>
+                  <p className="text-slate-500"># 2. Buka di Android Studio untuk kompilasi</p>
+                  <p><span className="text-emerald-400">npx</span> cap open android</p>
+                </div>
+                <p className="text-slate-500 text-[8.5px] italic leading-snug">
+                  Di Android Studio, jalankan: <strong>Build &gt; Build Bundle(s) / APK(s) &gt; Build APK(s)</strong> untuk memperoleh file APK asli.
+                </p>
+              </div>
+
+              {/* Syarat Versi Android */}
+              <div className="bg-white p-3.5 rounded-2xl border border-amber-100 shadow-2xs space-y-2">
+                <h5 className="font-black text-[10.5px] text-amber-900 flex items-center gap-1.5">
+                  <span className="w-2 h-2 rounded-full bg-blue-500 shrink-0"></span>
+                  3. Batas Kompatibilitas Versi OS Android
+                </h5>
+                <p className="text-slate-600 text-[9.5px] leading-relaxed">
+                  Jika Anda menggunakan berkas biner hasil kompilasi, pastikan versi sistem operasi Android perangkat fisik Anda kompatibel dengan konfigurasi manifest aplikasi:
+                </p>
+                <ul className="list-disc pl-4 text-[9px] text-slate-500 space-y-1 font-mono">
+                  <li><strong>Minimum SDK:</strong> API 24 (Android 7.0 "Nougat" atau lebih tinggi)</li>
+                  <li><strong>Target SDK:</strong> API 34 (Android 14 "Upside Down Cake" atau lebih tinggi)</li>
+                  <li>Kesalahan penguraian paket juga bisa dipicu jika versi Android perangkat fisik Anda berada di bawah batas minimum (Android &lt; 7.0).</li>
+                </ul>
+              </div>
+
+              {/* Unknown Sources Callout */}
+              <div className="bg-white p-3.5 rounded-2xl border border-amber-100 shadow-2xs space-y-2">
+                <h5 className="font-black text-[10.5px] text-amber-900 flex items-center gap-1.5">
+                  <span className="w-2 h-2 rounded-full bg-indigo-500 shrink-0"></span>
+                  4. Izinkan Pemasangan dari Sumber Luar
+                </h5>
+                <p className="text-slate-600 text-[9.5px] leading-relaxed">
+                  Secara bawaan, sistem Android memblokir pemasangan aplikasi di luar Google Play Store demi keamanan. Anda perlu mengizinkan pemasangan aplikasi tidak dikenal:
+                </p>
+                <div className="p-2.5 bg-amber-50/50 rounded-xl border border-amber-100 text-[9px] text-amber-950 font-medium leading-relaxed">
+                  Buka <strong>Pengaturan (Settings) &gt; Keamanan (Security) &gt; Instal aplikasi tidak dikenal (Install Unknown Apps)</strong>, lalu berikan izin akses penginstalan kepada peramban (Chrome) atau File Manager Anda sebelum membuka APK.
+                </div>
+              </div>
+            </div>
+          </div>
+
           {/* APP STORES FUTURE PLAN */}
           <div className="bg-slate-950 p-4 rounded-2xl space-y-3 border border-slate-900 text-slate-300">
             <span className="text-[8px] font-black uppercase text-amber-400 tracking-wider">Tahap 4 — Rencana Distribusi Store Resmi (App Store Roadmaps)</span>
