@@ -27,7 +27,10 @@ import {
   Zap,
   Globe,
   FileJson,
-  Send
+  Send,
+  Trash2,
+  Plus,
+  Upload
 } from 'lucide-react';
 import { ThemeColor } from '../types';
 import { IdentityModule } from '../core/IdentityService';
@@ -129,6 +132,8 @@ export default function BetaHubView({ themeColor }: BetaHubViewProps) {
   const [updateStep, setUpdateStep] = useState<'idle' | 'checking' | 'downloading' | 'verifying_sha' | 'verifying_signature' | 'installing' | 'restarting' | 'done'>('idle');
   const [updateProgress, setUpdateProgress] = useState(0);
   const [currentVersion, setCurrentVersion] = useState('v1.0.0-baseline');
+  const [selectedInstallerVersion, setSelectedInstallerVersion] = useState('v1.5.0-beta.1');
+  const [targetUpgradeVersion, setTargetUpgradeVersion] = useState('');
 
   // GitHub Releases Real-world integration
   const [githubRepo, setGithubRepo] = useState(() => ReleaseService.getRepositoryIdentifier());
@@ -136,6 +141,100 @@ export default function BetaHubView({ themeColor }: BetaHubViewProps) {
   const [gitReleases, setGitReleases] = useState<ReleaseInfo[]>([]);
   const [isFetchingReleases, setIsFetchingReleases] = useState(false);
   const [releasesError, setReleasesError] = useState<string | null>(null);
+
+  // GitHub Releases Management states
+  const [activeManageTab, setActiveManageTab] = useState<'view' | 'manage'>('view');
+  const [newReleaseTag, setNewReleaseTag] = useState('v1.5.0-beta.2');
+  const [newReleaseName, setNewReleaseName] = useState('ASE v1.5.0-beta.2');
+  const [newReleaseBody, setNewReleaseBody] = useState('### Pembaruan Rilis Baru\n\n*   Menambahkan fitur manajemen rilis langsung dari aplikasi.\n*   Perbaikan stabilitas dan optimalisasi kinerja.');
+  const [newReleaseDraft, setNewReleaseDraft] = useState(false);
+  const [newReleasePrerelease, setNewReleasePrerelease] = useState(true);
+  const [isCreatingRelease, setIsCreatingRelease] = useState(false);
+  const [isDeletingRelease, setIsDeletingRelease] = useState<number | null>(null);
+  const [selectedReleaseForUpload, setSelectedReleaseForUpload] = useState<number | null>(null);
+  const [uploadFile, setUploadFile] = useState<File | null>(null);
+  const [isUploadingAsset, setIsUploadingAsset] = useState(false);
+
+  const handleCreateRelease = async () => {
+    if (!githubToken) {
+      alert("⚠️ Harap masukkan GitHub PAT Token terlebih dahulu untuk mengelola rilis.");
+      return;
+    }
+    setIsCreatingRelease(true);
+    try {
+      await ReleaseService.createRelease(
+        githubRepo,
+        githubToken,
+        newReleaseTag,
+        newReleaseName,
+        newReleaseBody,
+        newReleaseDraft,
+        newReleasePrerelease
+      );
+      alert(`✓ Rilis ${newReleaseTag} berhasil dibuat di GitHub!`);
+      // Update default for next release
+      setNewReleaseTag(`v1.5.0-beta.${gitReleases.length + 2}`);
+      setNewReleaseName(`ASE v1.5.0-beta.${gitReleases.length + 2}`);
+      // Refresh list
+      await fetchReleases(githubRepo, true);
+      setActiveManageTab('view');
+    } catch (err: any) {
+      alert(`⚠️ Gagal membuat rilis: ${err.message || err}`);
+    } finally {
+      setIsCreatingRelease(false);
+    }
+  };
+
+  const handleDeleteRelease = async (releaseId: number, tagName: string) => {
+    if (!githubToken) {
+      alert("⚠️ Harap masukkan GitHub PAT Token terlebih dahulu untuk mengelola rilis.");
+      return;
+    }
+    if (!confirm(`Apakah Anda yakin ingin menghapus rilis ${tagName} dari GitHub? Tindakan ini tidak dapat dibatalkan.`)) {
+      return;
+    }
+    setIsDeletingRelease(releaseId);
+    try {
+      await ReleaseService.deleteRelease(githubRepo, githubToken, releaseId);
+      alert(`✓ Rilis ${tagName} berhasil dihapus dari GitHub!`);
+      // Refresh list
+      await fetchReleases(githubRepo, true);
+    } catch (err: any) {
+      alert(`⚠️ Gagal menghapus rilis: ${err.message || err}`);
+    } finally {
+      setIsDeletingRelease(null);
+    }
+  };
+
+  const handleUploadAsset = async (releaseId: number) => {
+    if (!githubToken) {
+      alert("⚠️ Harap masukkan GitHub PAT Token terlebih dahulu untuk mengelola rilis.");
+      return;
+    }
+    if (!uploadFile) {
+      alert("⚠️ Silakan pilih file biner (.apk, .zip, .exe) terlebih dahulu.");
+      return;
+    }
+    setIsUploadingAsset(true);
+    try {
+      await ReleaseService.uploadReleaseAsset(
+        githubRepo,
+        githubToken,
+        releaseId,
+        uploadFile.name,
+        uploadFile
+      );
+      alert(`✓ Berhasil mengunggah "${uploadFile.name}" ke rilis GitHub!`);
+      setUploadFile(null);
+      setSelectedReleaseForUpload(null);
+      // Refresh list
+      await fetchReleases(githubRepo, true);
+    } catch (err: any) {
+      alert(`⚠️ Gagal mengunggah aset: ${err.message || err}`);
+    } finally {
+      setIsUploadingAsset(false);
+    }
+  };
 
   // Release Mode Selection: 'auto' | 'github' | 'local' | 'simulation'
   const [releaseMode, setReleaseMode] = useState<'auto' | 'github' | 'local' | 'simulation'>(() => {
@@ -156,28 +255,49 @@ export default function BetaHubView({ themeColor }: BetaHubViewProps) {
 
   // Android Installer simulation states
   const [showAndroidInstaller, setShowAndroidInstaller] = useState(false);
-  const [installerStep, setInstallerStep] = useState<'prompt' | 'installing' | 'completed'>('prompt');
+  const [installerStep, setInstallerStep] = useState<'prompt' | 'installing' | 'completed' | 'failed'>('prompt');
   const [installProgress, setInstallProgress] = useState(0);
+  const [simulateMismatch, setSimulateMismatch] = useState(false);
+  const [installerError, setInstallerError] = useState<string | null>(null);
 
   const startInstallationProgress = () => {
     setInstallerStep('installing');
     setInstallProgress(0);
+    setInstallerError(null);
     const interval = setInterval(() => {
       setInstallProgress((prev) => {
         if (prev >= 100) {
           clearInterval(interval);
-          setInstallerStep('completed');
-          // Add a telemetry log
-          setTelemetryLogs(prevLogs => {
-            const nextLogs = [
-              ...prevLogs,
-              { type: 'SYS', text: 'Android Sandbox: com.ase.workbook successfully installed with verification signature 0x7E3D.', time: new Date().toLocaleTimeString() }
-            ];
-            while (nextLogs.length > 6) {
-              nextLogs.shift();
-            }
-            return nextLogs;
-          });
+          if (simulateMismatch) {
+            setInstallerStep('failed');
+            setInstallerError(
+              "Gagal Memasang Aplikasi (INSTALL_FAILED_VERIFICATION_FAILURE):\n" +
+              "Isi biner APK tidak sesuai dengan manifest rilis! Kode Hash SHA-256 tidak cocok dengan tanda tangan digital resmi, terindikasi berkas rusak atau dimanipulasi."
+            );
+            setTelemetryLogs(prevLogs => {
+              const nextLogs = [
+                ...prevLogs,
+                { type: 'ERR', text: 'Android Sandbox Security Daemon: APK Signature verification failed. Content mismatch detected!', time: new Date().toLocaleTimeString() }
+              ];
+              while (nextLogs.length > 6) {
+                nextLogs.shift();
+              }
+              return nextLogs;
+            });
+          } else {
+            setInstallerStep('completed');
+            // Add a telemetry log
+            setTelemetryLogs(prevLogs => {
+              const nextLogs = [
+                ...prevLogs,
+                { type: 'SYS', text: `Android Sandbox: com.ase.workbook successfully installed with verification signature 0x7E3D.`, time: new Date().toLocaleTimeString() }
+              ];
+              while (nextLogs.length > 6) {
+                nextLogs.shift();
+              }
+              return nextLogs;
+            });
+          }
           return 100;
         }
         return prev + Math.floor(Math.random() * 15 + 10);
@@ -518,6 +638,7 @@ API Error Rate: ${errorRate}%`;
             setDownloadSuccessMessage(`✓ Berhasil Mengunduh ${filename}! Pemasangan siap dijalankan di sistem Anda.`);
             if (platform === 'android') {
               setTimeout(() => {
+                setSelectedInstallerVersion(gitReleases.length > 0 ? gitReleases[0].tagName : 'v1.5.0-beta.1');
                 setInstallerStep('prompt');
                 setInstallProgress(0);
                 setShowAndroidInstaller(true);
@@ -536,6 +657,8 @@ API Error Rate: ${errorRate}%`;
     if (updateStep !== 'idle' && updateStep !== 'done') return;
     setUpdateStep('checking');
     setUpdateProgress(0);
+
+    const targetVer = targetUpgradeVersion || (gitReleases.length > 0 ? gitReleases[0].tagName : 'v1.5.0-beta.2');
 
     // Telemetry log injection
     setTelemetryLogs(prev => {
@@ -556,7 +679,7 @@ API Error Rate: ${errorRate}%`;
       setTelemetryLogs(prev => {
         const nextLogs = [
           ...prev,
-          { type: 'SYS', text: 'Auto-Updater daemon: Update v1.5.0-beta.2 discovered. Starting download...', time: new Date().toLocaleTimeString() }
+          { type: 'SYS', text: 'Auto-Updater daemon: Update ' + targetVer + ' discovered. Starting download...', time: new Date().toLocaleTimeString() }
         ];
         if (nextLogs.length > 6) {
           nextLogs.shift();
@@ -630,12 +753,12 @@ API Error Rate: ${errorRate}%`;
                   setUpdateStep('restarting');
                   setTimeout(() => {
                     setUpdateStep('done');
-                    setCurrentVersion('v1.5.0-beta.2');
+                    setCurrentVersion(targetVer);
                     
                     setTelemetryLogs(prevLogs => {
                       const nextLogs = [
                         ...prevLogs,
-                        { type: 'SYS', text: 'System restarted successfully on core release v1.5.0-beta.2.', time: new Date().toLocaleTimeString() }
+                        { type: 'SYS', text: 'System restarted successfully on core release ' + targetVer + '.', time: new Date().toLocaleTimeString() }
                       ];
                       if (nextLogs.length > 6) {
                         nextLogs.shift();
@@ -1357,146 +1480,407 @@ API Error Rate: ${errorRate}%`;
               );
             })()}
 
+            {/* TABS SELECTION FOR LIST OR MANAGE */}
+            <div className="flex bg-slate-200/50 p-1 rounded-xl gap-1">
+              <button
+                type="button"
+                onClick={() => setActiveManageTab('view')}
+                className={`flex-1 py-1.5 text-center text-[10px] font-black rounded-lg transition-all ${
+                  activeManageTab === 'view'
+                    ? 'bg-slate-900 text-white shadow-xs'
+                    : 'text-slate-500 hover:text-slate-800'
+                }`}
+              >
+                📁 Daftar & Unduh Rilis
+              </button>
+              <button
+                type="button"
+                onClick={() => setActiveManageTab('manage')}
+                className={`flex-1 py-1.5 text-center text-[10px] font-black rounded-lg transition-all ${
+                  activeManageTab === 'manage'
+                    ? 'bg-slate-900 text-white shadow-xs'
+                    : 'text-slate-500 hover:text-slate-800'
+                }`}
+              >
+                ⚙️ Kelola Rilis (Create & Upload)
+              </button>
+            </div>
+
             {/* Display fetched release if any */}
             {isFetchingReleases ? (
               <div className="flex items-center justify-center py-4 gap-2 text-slate-500 text-[10px] font-bold">
                 <RefreshCw className="w-3.5 h-3.5 animate-spin" />
                 <span>Sedang mengambil data rilis langsung dari GitHub...</span>
               </div>
-            ) : releasesError ? (
-              <div className="bg-amber-50 border border-amber-200 p-4 rounded-xl space-y-3">
-                <div className="space-y-1">
-                  <p className="text-[10.5px] text-amber-800 font-extrabold">⚠️ {releasesError}</p>
-                  <p className="text-[9px] text-amber-600 font-medium leading-relaxed">
-                    Repository "{githubRepo}" tidak dapat diakses secara publik atau belum ada rilis. Untuk melanjutkan verifikasi fungsional Download Center, silakan aktifkan Mode Sandbox (Rilis Lokal) di bawah ini.
-                  </p>
+            ) : activeManageTab === 'view' ? (
+              // --- VIEW MODE ---
+              releasesError ? (
+                <div className="bg-amber-50 border border-amber-200 p-4 rounded-xl space-y-3">
+                  <div className="space-y-1">
+                    <p className="text-[10.5px] text-amber-800 font-extrabold">⚠️ {releasesError}</p>
+                    <p className="text-[9px] text-amber-600 font-medium leading-relaxed">
+                      Repository "{githubRepo}" tidak dapat diakses secara publik atau belum ada rilis. Untuk melanjutkan verifikasi fungsional Download Center, silakan aktifkan Mode Sandbox (Rilis Lokal) di bawah ini.
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setReleaseMode('local');
+                      localStorage.setItem('ase_release_mode', 'local');
+                    }}
+                    className="py-1.5 px-3 bg-emerald-600 hover:bg-emerald-700 text-white text-[10px] font-black rounded-lg shadow-sm transition-all cursor-pointer"
+                  >
+                    🚀 Aktifkan Mode Sandbox (Rilis v1.5.0-beta.1)
+                  </button>
                 </div>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setReleaseMode('local');
-                    localStorage.setItem('ase_release_mode', 'local');
-                  }}
-                  className="py-1.5 px-3 bg-emerald-600 hover:bg-emerald-700 text-white text-[10px] font-black rounded-lg shadow-sm transition-all cursor-pointer"
-                >
-                  🚀 Aktifkan Mode Sandbox (Rilis v1.5.0-beta.1)
-                </button>
-              </div>
-            ) : gitReleases.length === 0 ? (
-              <div className="bg-slate-100 border border-slate-200 p-4 rounded-xl text-center space-y-3">
-                <div className="space-y-1">
-                  <p className="text-[10.5px] text-slate-700 font-extrabold">🚫 Belum ada rilis publik di repositori ini ({githubRepo}).</p>
-                  <p className="text-[9px] text-slate-500 font-medium">Tampilkan rilis di bawah ini setelah Anda mengunggah APK via GitHub Actions atau mengunggah biner baru.</p>
+              ) : gitReleases.length === 0 ? (
+                <div className="bg-slate-100 border border-slate-200 p-4 rounded-xl text-center space-y-3">
+                  <div className="space-y-1">
+                    <p className="text-[10.5px] text-slate-700 font-extrabold">🚫 Belum ada rilis publik di repositori ini ({githubRepo}).</p>
+                    <p className="text-[9px] text-slate-500 font-medium">Tampilkan rilis di bawah ini setelah Anda mengunggah APK via GitHub Actions atau mengunggah biner baru.</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setReleaseMode('local');
+                      localStorage.setItem('ase_release_mode', 'local');
+                    }}
+                    className="py-1.5 px-3 bg-emerald-600 hover:bg-emerald-700 text-white text-[10px] font-black rounded-lg shadow-sm transition-all cursor-pointer"
+                  >
+                    🚀 Aktifkan Mode Sandbox (Rilis v1.5.0-beta.1)
+                  </button>
                 </div>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setReleaseMode('local');
-                    localStorage.setItem('ase_release_mode', 'local');
-                  }}
-                  className="py-1.5 px-3 bg-emerald-600 hover:bg-emerald-700 text-white text-[10px] font-black rounded-lg shadow-sm transition-all cursor-pointer"
-                >
-                  🚀 Aktifkan Mode Sandbox (Rilis v1.5.0-beta.1)
-                </button>
-              </div>
-            ) : (
-              <div className="space-y-3">
-                <div className="flex justify-between items-center flex-wrap gap-2">
-                  <span className="text-[8.5px] font-black uppercase text-indigo-500 tracking-wider">
-                    Rilis Publik Terdeteksi ({gitReleases.length} Rilis)
-                  </span>
-                  <div className="flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[8.5px] font-black bg-white border border-slate-200 shadow-2xs">
-                    {resolvedSource === 'github' && (
-                      <>
-                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
-                        <span className="text-emerald-700">🟢 Source: GitHub Releases (Production)</span>
-                      </>
-                    )}
-                    {resolvedSource === 'local' && (
-                      <>
-                        <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse"></span>
-                        <span className="text-amber-700">🟡 Source: Local Sandbox (Development)</span>
-                      </>
-                    )}
-                    {resolvedSource === 'simulation' && (
-                      <>
-                        <span className="w-1.5 h-1.5 rounded-full bg-slate-400"></span>
-                        <span className="text-slate-500">⚪ Source: Simulation (Demo Mode)</span>
-                      </>
-                    )}
+              ) : (
+                <div className="space-y-3">
+                  <div className="flex justify-between items-center flex-wrap gap-2">
+                    <span className="text-[8.5px] font-black uppercase text-indigo-500 tracking-wider">
+                      Rilis Publik Terdeteksi ({gitReleases.length} Rilis)
+                    </span>
+                    <div className="flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[8.5px] font-black bg-white border border-slate-200 shadow-2xs">
+                      {resolvedSource === 'github' && (
+                        <>
+                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                          <span className="text-emerald-700">🟢 Source: GitHub Releases (Production)</span>
+                        </>
+                      )}
+                      {resolvedSource === 'local' && (
+                        <>
+                          <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse"></span>
+                          <span className="text-amber-700">🟡 Source: Local Sandbox (Development)</span>
+                        </>
+                      )}
+                      {resolvedSource === 'simulation' && (
+                        <>
+                          <span className="w-1.5 h-1.5 rounded-full bg-slate-400"></span>
+                          <span className="text-slate-500">⚪ Source: Simulation (Demo Mode)</span>
+                        </>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    {gitReleases.slice(0, 3).map((rel) => (
+                      <div key={rel.id} className="bg-white border border-slate-150 p-3 rounded-xl space-y-2 text-[10px]">
+                        <div className="flex justify-between items-start flex-wrap gap-2">
+                          <div>
+                            <span className="font-extrabold text-slate-800 bg-slate-100 px-2 py-0.5 rounded text-[9px] font-mono">
+                              🏷️ {rel.tagName}
+                            </span>
+                            <span className="ml-2 font-black text-slate-900 text-[11px]">{rel.name || 'Rilis Tanpa Judul'}</span>
+                          </div>
+                          <span className="text-slate-400 text-[8.5px] font-bold font-mono">
+                            📆 Dipublikasikan: {new Date(rel.publishedAt).toLocaleDateString('id-ID', { year: 'numeric', month: 'long', day: 'numeric' })}
+                          </span>
+                        </div>
+
+                        {rel.body && (
+                          <div className="bg-slate-50 p-2.5 rounded-lg border border-slate-100 text-[9px] font-medium text-slate-600 font-mono whitespace-pre-wrap max-h-24 overflow-y-auto">
+                            {rel.body}
+                          </div>
+                        )}
+
+                        <div className="flex flex-col gap-1.5 pt-1">
+                          <span className="text-[8px] font-black uppercase text-slate-400 tracking-wider">Aset Rilis (Biner)</span>
+                          {rel.assets && rel.assets.length > 0 ? (
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                              {rel.assets.map((asset) => (
+                                <a
+                                  key={asset.id}
+                                  href={asset.browserDownloadUrl}
+                                  target={asset.browserDownloadUrl.startsWith('#') ? undefined : "_blank"}
+                                  rel="noopener noreferrer"
+                                  onClick={(e) => {
+                                    const isApk = asset.name.toLowerCase().endsWith('.apk');
+                                    const isSandbox = resolvedSource === 'local' || resolvedSource === 'simulation';
+                                    if (isApk && isSandbox) {
+                                      e.preventDefault();
+                                      setSelectedInstallerVersion(rel.tagName);
+                                      setInstallerStep('prompt');
+                                      setInstallProgress(0);
+                                      setShowAndroidInstaller(true);
+                                    } else if (asset.browserDownloadUrl.startsWith('#')) {
+                                      e.preventDefault();
+                                      setDownloadSuccessMessage(
+                                        `[SIMULASI] Simulasi unduh ${asset.name} (${(asset.size / 1024 / 1024).toFixed(2)} MB).\n\n` +
+                                        `Anda berada dalam MODE SIMULASI/DEMO untuk aset "${asset.name}". File biner fisik tidak dimuat karena berjalan tanpa biner fisik di server. ` +
+                                        `Ubah mode ke "Local Sandbox" atau "GitHub Releases" di atas jika biner fisik sudah siap.`
+                                      );
+                                      setTimeout(() => setDownloadSuccessMessage(null), 8000);
+                                    }
+                                  }}
+                                  className="flex items-center justify-between p-2 bg-indigo-50 hover:bg-indigo-100/80 border border-indigo-150 rounded-xl transition-all font-mono text-[9px] font-black text-indigo-900"
+                                >
+                                  <div className="truncate pr-2">
+                                    📦 {asset.name}
+                                    <span className="block text-[8px] text-slate-400 font-semibold">
+                                      Ukuran: {(asset.size / 1024 / 1024).toFixed(2)} MB • Diunduh: {asset.downloadCount}x
+                                    </span>
+                                  </div>
+                                  <span className="bg-indigo-600 text-white px-2.5 py-1 rounded-lg text-[8px] font-bold shrink-0">
+                                    Download APK
+                                  </span>
+                                </a>
+                              ))}
+                            </div>
+                          ) : (
+                            <p className="text-slate-400 italic text-[9px]">Tidak ada aset biner yang dilampirkan pada rilis ini.</p>
+                          )}
+                        </div>
+                      </div>
+                    ))}
                   </div>
                 </div>
+              )
+            ) : (
+              // --- MANAGE MODE ---
+              <div className="space-y-4 animate-fade-in text-[10px]">
+                {!githubToken ? (
+                  <div className="bg-amber-50 border border-amber-200 p-3 rounded-xl text-amber-800 space-y-1.5 font-medium leading-relaxed">
+                    <p className="font-extrabold text-xs flex items-center gap-1">
+                      <AlertCircle className="w-4 h-4 shrink-0" /> Token GitHub Diperlukan
+                    </p>
+                    <p>
+                      Untuk mengelola rilis (membuat rilis baru, menghapus rilis, atau mengunggah biner APK), Anda harus memasukkan <strong>GitHub Personal Access Token (PAT)</strong> Anda di formulir konfigurasi di atas terlebih dahulu.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {/* Form Buat Rilis */}
+                    <div className="bg-white border border-slate-200 p-4 rounded-xl space-y-3 shadow-xs">
+                      <h4 className="font-extrabold text-xs text-slate-800 flex items-center gap-1">
+                        <Plus className="w-3.5 h-3.5 text-indigo-600" /> Buat Rilis Baru di GitHub
+                      </h4>
+                      <p className="text-slate-400 text-[9px]">
+                        Isi form di bawah untuk membuat draf rilis atau rilis publik langsung ke repositori <strong>{githubRepo}</strong>.
+                      </p>
 
-                <div className="space-y-2">
-                  {gitReleases.slice(0, 3).map((rel) => (
-                    <div key={rel.id} className="bg-white border border-slate-150 p-3 rounded-xl space-y-2 text-[10px]">
-                      <div className="flex justify-between items-start flex-wrap gap-2">
-                        <div>
-                          <span className="font-extrabold text-slate-800 bg-slate-100 px-2 py-0.5 rounded text-[9px] font-mono">
-                            🏷️ {rel.tagName}
-                          </span>
-                          <span className="ml-2 font-black text-slate-900 text-[11px]">{rel.name || 'Rilis Tanpa Judul'}</span>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+                        <div className="space-y-1">
+                          <label className="font-bold text-slate-500">Nama Tag (Tag Name):</label>
+                          <input
+                            type="text"
+                            value={newReleaseTag}
+                            onChange={(e) => setNewReleaseTag(e.target.value)}
+                            className="w-full px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:border-slate-800 font-mono text-[10px]"
+                            placeholder="e.g. v1.5.0-beta.2"
+                          />
                         </div>
-                        <span className="text-slate-400 text-[8.5px] font-bold font-mono">
-                          📆 Dipublikasikan: {new Date(rel.publishedAt).toLocaleDateString('id-ID', { year: 'numeric', month: 'long', day: 'numeric' })}
-                        </span>
+                        <div className="space-y-1">
+                          <label className="font-bold text-slate-500">Nama/Judul Rilis (Release Title):</label>
+                          <input
+                            type="text"
+                            value={newReleaseName}
+                            onChange={(e) => setNewReleaseName(e.target.value)}
+                            className="w-full px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:border-slate-800 text-[10px] font-bold text-slate-800"
+                            placeholder="e.g. ASE v1.5.0-beta.2"
+                          />
+                        </div>
                       </div>
 
-                      {rel.body && (
-                        <div className="bg-slate-50 p-2.5 rounded-lg border border-slate-100 text-[9px] font-medium text-slate-600 font-mono whitespace-pre-wrap max-h-24 overflow-y-auto">
-                          {rel.body}
+                      <div className="space-y-1">
+                        <label className="font-bold text-slate-500">Catatan Rilis (Release Notes):</label>
+                        <textarea
+                          rows={3}
+                          value={newReleaseBody}
+                          onChange={(e) => setNewReleaseBody(e.target.value)}
+                          className="w-full px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:border-slate-800 text-[9.5px] font-mono leading-relaxed"
+                          placeholder="Tulis changelog rilis Anda di sini (Markdown didukung)..."
+                        />
+                      </div>
+
+                      <div className="flex items-center gap-4 pt-1">
+                        <label className="flex items-center gap-1.5 font-bold text-slate-600 cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={newReleaseDraft}
+                            onChange={(e) => setNewReleaseDraft(e.target.checked)}
+                            className="rounded text-indigo-600 focus:ring-indigo-500 w-3.5 h-3.5 cursor-pointer"
+                          />
+                          Simpan sebagai Draf (Draft)
+                        </label>
+                        <label className="flex items-center gap-1.5 font-bold text-slate-600 cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={newReleasePrerelease}
+                            onChange={(e) => setNewReleasePrerelease(e.target.checked)}
+                            className="rounded text-indigo-600 focus:ring-indigo-500 w-3.5 h-3.5 cursor-pointer"
+                          />
+                          Tandai sebagai Pre-release
+                        </label>
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={handleCreateRelease}
+                        disabled={isCreatingRelease}
+                        className="w-full py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-black rounded-lg transition-all shadow-sm flex items-center justify-center gap-1.5 disabled:opacity-50 cursor-pointer"
+                      >
+                        {isCreatingRelease ? (
+                          <>
+                            <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                            <span>Membuat Rilis Baru...</span>
+                          </>
+                        ) : (
+                          <>
+                            <Sparkles className="w-3.5 h-3.5" />
+                            <span>Buat & Publikasikan Rilis Sekarang</span>
+                          </>
+                        )}
+                      </button>
+                    </div>
+
+                    {/* Kelola Rilis Aktif */}
+                    <div className="space-y-2">
+                      <span className="text-[8.5px] font-black uppercase text-indigo-500 tracking-wider">
+                        Rilis Aktif di GitHub (Aksi Manajemen)
+                      </span>
+
+                      {gitReleases.length === 0 ? (
+                        <p className="text-slate-400 italic text-center py-2 bg-slate-100/50 rounded-xl">Tidak ada rilis aktif terdeteksi.</p>
+                      ) : (
+                        <div className="space-y-2">
+                          {gitReleases.map((rel) => (
+                            <div key={rel.id} className="bg-white border border-slate-150 p-3 rounded-xl space-y-3">
+                              <div className="flex justify-between items-center gap-2">
+                                <div>
+                                  <span className="font-extrabold text-slate-800 bg-slate-100 px-2 py-0.5 rounded text-[8.5px] font-mono mr-1.5">
+                                    🏷️ {rel.tagName}
+                                  </span>
+                                  <span className="font-black text-slate-800 text-[10.5px]">{rel.name || 'Rilis Tanpa Judul'}</span>
+                                </div>
+                                
+                                <button
+                                  type="button"
+                                  onClick={() => handleDeleteRelease(rel.id, rel.tagName)}
+                                  disabled={isDeletingRelease === rel.id}
+                                  className="p-1.5 bg-red-50 hover:bg-red-100 border border-red-150 text-red-600 rounded-lg transition-all cursor-pointer disabled:opacity-50"
+                                  title="Hapus Rilis"
+                                >
+                                  {isDeletingRelease === rel.id ? (
+                                    <RefreshCw className="w-3.5 h-3.5 animate-spin text-red-500" />
+                                  ) : (
+                                    <Trash2 className="w-3.5 h-3.5" />
+                                  )}
+                                </button>
+                              </div>
+
+                              {/* Aset saat ini */}
+                              <div className="space-y-1 bg-slate-50 p-2 rounded-lg border border-slate-100">
+                                <span className="text-[7.5px] font-black uppercase text-slate-400 tracking-wider block">Aset Saat Ini:</span>
+                                {rel.assets && rel.assets.length > 0 ? (
+                                  <div className="space-y-1">
+                                    {rel.assets.map((as) => (
+                                      <div key={as.id} className="flex items-center justify-between font-mono text-[8.5px] text-slate-600 bg-white p-1 rounded border border-slate-100">
+                                        <span className="truncate pr-2">📦 {as.name} ({(as.size / 1024 / 1024).toFixed(2)} MB)</span>
+                                        <span className="text-slate-400 font-semibold">Unduh: {as.downloadCount}x</span>
+                                      </div>
+                                    ))}
+                                  </div>
+                                ) : (
+                                  <p className="text-slate-400 italic text-[8px] pl-0.5">Belum ada aset biner dilampirkan.</p>
+                                )}
+                              </div>
+
+                              {/* Form unggah aset biner kustom */}
+                              <div className="border-t border-slate-100 pt-2 space-y-2">
+                                <div className="flex justify-between items-center">
+                                  <span className="font-extrabold text-[8.5px] text-indigo-950 uppercase tracking-wider flex items-center gap-1">
+                                    <Upload className="w-3 h-3 text-indigo-600" /> Lampirkan Aset APK/Biner ke Rilis Ini
+                                  </span>
+                                  {selectedReleaseForUpload === rel.id && (
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        setSelectedReleaseForUpload(null);
+                                        setUploadFile(null);
+                                      }}
+                                      className="text-[8.5px] text-slate-400 font-semibold hover:text-slate-600"
+                                    >
+                                      Batal
+                                    </button>
+                                  )}
+                                </div>
+
+                                {selectedReleaseForUpload !== rel.id ? (
+                                  <button
+                                    type="button"
+                                    onClick={() => setSelectedReleaseForUpload(rel.id)}
+                                    className="w-full py-1.5 bg-slate-50 hover:bg-indigo-50 hover:text-indigo-900 border border-slate-200 hover:border-indigo-200 text-slate-600 text-[9px] font-black rounded-lg transition-all cursor-pointer flex items-center justify-center gap-1"
+                                  >
+                                    <Plus className="w-3 h-3" /> Pilih File & Unggah Biner
+                                  </button>
+                                ) : (
+                                  <div className="space-y-2 bg-indigo-50/40 p-2.5 border border-indigo-150 rounded-xl">
+                                    <div className="space-y-1">
+                                      <span className="text-[7.5px] font-bold text-slate-500">Pilih File (.apk, .zip, .exe, .dmg, .AppImage):</span>
+                                      <input
+                                        type="file"
+                                        onChange={(e) => {
+                                          if (e.target.files && e.target.files[0]) {
+                                            setUploadFile(e.target.files[0]);
+                                          }
+                                        }}
+                                        className="w-full text-[8.5px] bg-white border border-slate-200 rounded-lg p-1 font-mono focus:outline-none"
+                                      />
+                                    </div>
+
+                                    {uploadFile && (
+                                      <div className="text-[8.5px] font-mono text-slate-500 bg-white p-1.5 rounded border border-slate-200/80">
+                                        <p className="font-bold text-indigo-950">Informasi File:</p>
+                                        <p>Nama: {uploadFile.name}</p>
+                                        <p>Ukuran: {(uploadFile.size / 1024 / 1024).toFixed(2)} MB</p>
+                                        <p>Tipe: {uploadFile.type || 'application/octet-stream'}</p>
+                                      </div>
+                                    )}
+
+                                    <button
+                                      type="button"
+                                      onClick={() => handleUploadAsset(rel.id)}
+                                      disabled={isUploadingAsset || !uploadFile}
+                                      className="w-full py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-[9px] font-black rounded-lg shadow-xs transition-all flex items-center justify-center gap-1 disabled:opacity-50 cursor-pointer"
+                                    >
+                                      {isUploadingAsset ? (
+                                        <>
+                                          <RefreshCw className="w-3 h-3 animate-spin" />
+                                          <span>Sedang Mengunggah ke GitHub...</span>
+                                        </>
+                                      ) : (
+                                        <>
+                                          <Upload className="w-3 h-3" />
+                                          <span>Unggah Aset "{uploadFile?.name || 'Pilih File First'}"</span>
+                                        </>
+                                      )}
+                                    </button>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          ))}
                         </div>
                       )}
-
-                      <div className="flex flex-col gap-1.5 pt-1">
-                        <span className="text-[8px] font-black uppercase text-slate-400 tracking-wider">Aset Rilis (Biner)</span>
-                        {rel.assets && rel.assets.length > 0 ? (
-                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                            {rel.assets.map((asset) => (
-                              <a
-                                key={asset.id}
-                                href={asset.browserDownloadUrl}
-                                target={asset.browserDownloadUrl.startsWith('#') ? undefined : "_blank"}
-                                rel="noopener noreferrer"
-                                onClick={(e) => {
-                                  const isApk = asset.name.toLowerCase().endsWith('.apk');
-                                  const isSandbox = resolvedSource === 'local' || resolvedSource === 'simulation';
-                                  if (isApk && isSandbox) {
-                                    e.preventDefault();
-                                    setInstallerStep('prompt');
-                                    setInstallProgress(0);
-                                    setShowAndroidInstaller(true);
-                                  } else if (asset.browserDownloadUrl.startsWith('#')) {
-                                    e.preventDefault();
-                                    setDownloadSuccessMessage(
-                                      `[SIMULASI] Simulasi unduh ${asset.name} (${(asset.size / 1024 / 1024).toFixed(2)} MB).\n\n` +
-                                      `Anda berada dalam MODE SIMULASI/DEMO untuk aset "${asset.name}". File biner fisik tidak dimuat karena berjalan tanpa biner fisik di server. ` +
-                                      `Ubah mode ke "Local Sandbox" atau "GitHub Releases" di atas jika biner fisik sudah siap.`
-                                    );
-                                    setTimeout(() => setDownloadSuccessMessage(null), 8000);
-                                  }
-                                }}
-                                className="flex items-center justify-between p-2 bg-indigo-50 hover:bg-indigo-100/80 border border-indigo-150 rounded-xl transition-all font-mono text-[9px] font-black text-indigo-900"
-                              >
-                                <div className="truncate pr-2">
-                                  📦 {asset.name}
-                                  <span className="block text-[8px] text-slate-400 font-semibold">
-                                    Ukuran: {(asset.size / 1024 / 1024).toFixed(2)} MB • Diunduh: {asset.downloadCount}x
-                                  </span>
-                                </div>
-                                <span className="bg-indigo-600 text-white px-2.5 py-1 rounded-lg text-[8px] font-bold shrink-0">
-                                  Download APK
-                                </span>
-                              </a>
-                            ))}
-                          </div>
-                        ) : (
-                          <p className="text-slate-400 italic text-[9px]">Tidak ada aset biner yang dilampirkan pada rilis ini.</p>
-                        )}
-                      </div>
                     </div>
-                  ))}
-                </div>
+                  </div>
+                )}
               </div>
             )}
           </div>
@@ -1728,34 +2112,47 @@ API Error Rate: ${errorRate}%`;
           )}
 
           {/* VERSION STATUS CHECKING PANEL */}
-          <div className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 animate-fade-in">
-            <div className="flex items-start gap-3">
-              <div className="w-10 h-10 bg-amber-50 text-amber-600 rounded-xl flex items-center justify-center shrink-0">
-                <AlertCircle className="w-5 h-5" />
-              </div>
-              <div className="space-y-0.5">
-                <h4 className="font-extrabold text-xs text-slate-800 flex items-center gap-2">
-                  Status Pembaruan Aplikasi <span className="bg-amber-100 text-amber-800 text-[8px] font-black uppercase px-2 py-0.5 rounded-full">Pembaruan Tersedia</span>
-                </h4>
-                <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[10px] text-slate-500 font-medium">
-                  <div>Versi Terpasang (Installed): <strong className="text-slate-700">{currentVersion}</strong></div>
-                  <div className="hidden sm:block text-slate-300">•</div>
-                  <div>Versi Server Terbaru (Latest): <strong className="text-slate-800">v1.5.0-beta.2</strong></div>
-                  <div className="hidden sm:block text-slate-300">•</div>
-                  <div>Update Tersedia: <strong className="text-amber-600">Ya</strong></div>
+          {(() => {
+            const latestServerVersion = gitReleases.length > 0 ? gitReleases[0].tagName : 'v1.5.0-beta.2';
+            const updateAvailable = currentVersion !== latestServerVersion;
+
+            return (
+              <div className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 animate-fade-in">
+                <div className="flex items-start gap-3">
+                  <div className={`w-10 h-10 ${updateAvailable ? 'bg-amber-50 text-amber-600' : 'bg-emerald-50 text-emerald-600'} rounded-xl flex items-center justify-center shrink-0`}>
+                    <AlertCircle className="w-5 h-5" />
+                  </div>
+                  <div className="space-y-0.5">
+                    <h4 className="font-extrabold text-xs text-slate-800 flex items-center gap-2">
+                      Status Pembaruan Aplikasi 
+                      {updateAvailable ? (
+                        <span className="bg-amber-100 text-amber-800 text-[8px] font-black uppercase px-2 py-0.5 rounded-full">Pembaruan Tersedia</span>
+                      ) : (
+                        <span className="bg-emerald-100 text-emerald-800 text-[8px] font-black uppercase px-2 py-0.5 rounded-full">Aplikasi Mutakhir (Up to Date)</span>
+                      )}
+                    </h4>
+                    <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[10px] text-slate-500 font-medium">
+                      <div>Versi Terpasang (Installed): <strong className="text-slate-700">{currentVersion}</strong></div>
+                      <div className="hidden sm:block text-slate-300">•</div>
+                      <div>Versi Server Terbaru (Latest): <strong className="text-slate-800">{latestServerVersion}</strong></div>
+                      <div className="hidden sm:block text-slate-300">•</div>
+                      <div>Update Tersedia: <strong className={updateAvailable ? "text-amber-600" : "text-emerald-600"}>{updateAvailable ? 'Ya' : 'Tidak'}</strong></div>
+                    </div>
+                  </div>
+                </div>
+                <div className="shrink-0 flex items-center gap-2">
+                  <button 
+                    onClick={() => setBetaSubTab('updater')}
+                    className={`w-full sm:w-auto px-4 py-2 ${updateAvailable ? 'bg-slate-900 hover:bg-slate-800 text-white' : 'bg-slate-100 text-slate-400 cursor-not-allowed'} text-[10px] font-black rounded-xl transition-all flex items-center justify-center gap-1.5`}
+                    disabled={!updateAvailable}
+                  >
+                    <RefreshCw className={`w-3.5 h-3.5 ${updateAvailable ? 'animate-spin' : ''}`} style={updateAvailable ? { animationDuration: '6s' } : undefined} />
+                    {updateAvailable ? 'Update Sekarang' : 'Sudah Terbaru'}
+                  </button>
                 </div>
               </div>
-            </div>
-            <div className="shrink-0 flex items-center gap-2">
-              <button 
-                onClick={() => setBetaSubTab('updater')}
-                className="w-full sm:w-auto px-4 py-2 bg-slate-900 text-white text-[10px] font-black rounded-xl hover:bg-slate-800 transition-all cursor-pointer flex items-center justify-center gap-1.5"
-              >
-                <RefreshCw className="w-3.5 h-3.5 animate-spin" style={{ animationDuration: '6s' }} />
-                Update Sekarang
-              </button>
-            </div>
-          </div>
+            );
+          })()}
 
           {/* DOWNLOAD CARDS */}
           {(() => {
@@ -2047,6 +2444,52 @@ API Error Rate: ${errorRate}%`;
             <p className="text-slate-400 text-[10px] leading-relaxed">
               Mensimulasikan integrasi pembaruan otomatis platform ASE mirip seperti mekanisme VS Code atau Discord: sistem melakukan pemeriksaan berkala, mengunduh file biner terbaru di latar belakang, memasang secara otomatis, dan melakukan inisialisasi ulang.
             </p>
+
+            {/* SELECTOR FOR UPGRADE TARGET */}
+            <div className="space-y-2 p-3.5 bg-slate-50 border border-slate-150 rounded-2xl">
+              <label className="block text-[9.5px] font-black text-slate-500 uppercase tracking-wider">
+                🎯 Target Versi untuk Upgrade / Rollback:
+              </label>
+              <div className="flex flex-col sm:flex-row gap-2">
+                <select
+                  value={targetUpgradeVersion || (gitReleases.length > 0 ? gitReleases[0].tagName : 'v1.5.0-beta.2')}
+                  onChange={(e) => setTargetUpgradeVersion(e.target.value)}
+                  className="flex-1 px-3 py-1.5 bg-white border border-slate-200 rounded-xl focus:outline-none focus:border-slate-800 font-mono text-[10px] font-bold text-slate-800"
+                >
+                  {gitReleases.length > 0 ? (
+                    gitReleases.map(r => (
+                      <option key={r.id} value={r.tagName}>
+                        {r.tagName} ({r.name || 'Rilis Publik'}) {r.tagName === currentVersion ? '— [Terpasang]' : ''}
+                      </option>
+                    ))
+                  ) : (
+                    <>
+                      <option value="v1.5.0-beta.2">v1.5.0-beta.2 (Rilis Simulasi Default)</option>
+                      <option value="v1.6.0-stable">v1.6.0-stable (Simulasi Major)</option>
+                      <option value="v2.0.0-enterprise">v2.0.0-enterprise (Simulasi Enterprise)</option>
+                    </>
+                  )}
+                </select>
+                <button
+                  type="button"
+                  onClick={() => {
+                    // Reset version to baseline to retest
+                    setCurrentVersion('v1.0.0-baseline');
+                    setUpdateStep('idle');
+                    setUpdateProgress(0);
+                  }}
+                  className="px-3.5 py-1.5 text-[9.5px] bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-150 font-black rounded-xl transition-all cursor-pointer flex items-center justify-center gap-1 shrink-0"
+                  title="Reset versi terpasang ke baseline untuk menguji ulang upgrade"
+                >
+                  🔄 Reset Baseline
+                </button>
+              </div>
+              <p className="text-[8.5px] text-slate-400 leading-normal font-medium">
+                {gitReleases.length > 0 
+                  ? "✓ Versi target ditarik secara real-time dari data repositori GitHub Anda." 
+                  : "💡 Mode Simulasi: Anda dapat memilih beberapa target rilis mockup untuk melihat demonstrasi alur pembaruan."}
+              </p>
+            </div>
             
             <div className="pt-2">
               <button
@@ -2089,7 +2532,7 @@ API Error Rate: ${errorRate}%`;
                     <div className="flex justify-between text-slate-300">
                       <span className="flex items-center gap-1.5">
                         <span className={`w-1.5 h-1.5 rounded-full ${updateStep === 'downloading' ? 'bg-amber-500 animate-pulse' : 'bg-emerald-500'}`}></span>
-                        2. Download Paket Update (v1.5.0-beta.2)
+                        2. Download Paket Update ({targetUpgradeVersion || (gitReleases.length > 0 ? gitReleases[0].tagName : 'v1.5.0-beta.2')})
                       </span>
                       <span className="text-emerald-400 font-bold">{updateProgress}%</span>
                     </div>
@@ -2160,7 +2603,7 @@ API Error Rate: ${errorRate}%`;
                     <CheckCircle2 className="w-4 h-4 text-emerald-500" /> Platform Berhasil Diperbarui!
                   </h4>
                   <p className="text-[8.5px] leading-relaxed text-slate-300">
-                    Sistem saat ini berjalan pada versi <strong className="text-white">v1.5.0-beta.2</strong>. Seluruh cache lama dibersihkan dan dialokasikan ke registri modul yang aman.
+                    Sistem saat ini berjalan pada versi <strong className="text-white">{targetUpgradeVersion || (gitReleases.length > 0 ? gitReleases[0].tagName : 'v1.5.0-beta.2')}</strong>. Seluruh cache lama dibersihkan dan dialokasikan ke registri modul yang aman.
                   </p>
                 </div>
               )}
@@ -2262,7 +2705,7 @@ API Error Rate: ${errorRate}%`;
             <AseLogo size={48} withBackground={true} className="rounded-2xl shrink-0 shadow-md" />
             <div className="space-y-1">
               <h4 className="font-extrabold text-sm text-slate-100 leading-tight">ASE Workbook</h4>
-              <p className="text-[10px] text-slate-400 font-mono">com.ase.workbook • v1.5.0-beta.1</p>
+              <p className="text-[10px] text-slate-400 font-mono">com.ase.workbook • {selectedInstallerVersion}</p>
               <div className="flex items-center gap-2">
                 <span className="text-[8px] bg-slate-800 text-slate-300 px-1.5 py-0.5 rounded font-bold font-mono">Size: 18.2 MB</span>
                 <span className="text-[8px] bg-emerald-950 text-emerald-400 px-1.5 py-0.5 rounded font-black font-mono">VERIFIED KEY</span>
@@ -2279,6 +2722,42 @@ API Error Rate: ${errorRate}%`;
                 </p>
                 <p className="text-slate-400 text-[10.5px] leading-relaxed">
                   Aplikasi ini tidak memerlukan hak akses khusus apa pun pada peramban Anda.
+                </p>
+              </div>
+
+              {/* Simulation Mode Toggle */}
+              <div className="bg-slate-950 p-3.5 rounded-2xl border border-slate-800 space-y-2.5">
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider">🛠️ Simulasi Hasil Pasang:</span>
+                  <span className={`text-[8.5px] font-bold px-2 py-0.5 rounded-full ${simulateMismatch ? 'bg-rose-500/15 text-rose-400' : 'bg-emerald-500/15 text-emerald-400'}`}>
+                    {simulateMismatch ? '⚠️ Mode Mismatch' : '✓ Mode Sukses'}
+                  </span>
+                </div>
+                <div className="grid grid-cols-2 gap-1.5">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSimulateMismatch(false);
+                      setInstallerError(null);
+                    }}
+                    className={`px-2.5 py-2 text-[10px] font-extrabold rounded-xl border transition-all cursor-pointer ${!simulateMismatch ? 'bg-emerald-950/80 border-emerald-500 text-emerald-400 font-extrabold' : 'bg-slate-900 border-slate-800 text-slate-400 hover:bg-slate-850'}`}
+                  >
+                    ✓ Normal (Sukses)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSimulateMismatch(true);
+                    }}
+                    className={`px-2.5 py-2 text-[10px] font-extrabold rounded-xl border transition-all cursor-pointer ${simulateMismatch ? 'bg-rose-950/80 border-rose-500 text-rose-400 font-extrabold' : 'bg-slate-900 border-slate-800 text-slate-400 hover:bg-slate-850'}`}
+                  >
+                    ⚠️ Mismatch (Gagal)
+                  </button>
+                </div>
+                <p className="text-[8.5px] text-slate-400 leading-normal font-medium">
+                  {simulateMismatch 
+                    ? "Meniru kegagalan di mana isi biner APK tidak cocok dengan signature manifest rilis (INSTALL_FAILED_VERIFICATION_FAILURE)." 
+                    : "Instalasi simulasi akan sukses mendaftarkan com.ase.workbook ke penampung sandbox."}
                 </p>
               </div>
 
@@ -2327,7 +2806,7 @@ API Error Rate: ${errorRate}%`;
                 <p className="text-xs font-extrabold text-slate-200">Memasang...</p>
                 <div className="w-full bg-slate-800 h-2 rounded-full overflow-hidden">
                   <div 
-                    className="bg-emerald-500 h-2 rounded-full transition-all duration-300" 
+                    className={`h-2 rounded-full transition-all duration-300 ${simulateMismatch && installProgress >= 70 ? 'bg-rose-500' : 'bg-emerald-500'}`}
                     style={{ width: `${installProgress}%` }}
                   ></div>
                 </div>
@@ -2338,22 +2817,36 @@ API Error Rate: ${errorRate}%`;
               </div>
 
               {/* Console Installer Logs */}
-              <div className="bg-slate-950 border border-slate-800 p-2.5 rounded-xl font-mono text-[8.5px] leading-relaxed text-emerald-400 h-16 overflow-y-auto">
+              <div className="bg-slate-950 border border-slate-800 p-2.5 rounded-xl font-mono text-[8.5px] leading-relaxed text-slate-400 h-16 overflow-y-auto">
                 {installProgress < 30 && (
-                  <p className="animate-pulse">⏳ [VERIFY] Memvalidasi tanda tangan biner RSA-2048...</p>
+                  <p className="text-emerald-400 animate-pulse">⏳ [VERIFY] Memvalidasi tanda tangan biner RSA-2048...</p>
                 )}
                 {installProgress >= 30 && installProgress < 70 && (
-                  <>
-                    <p className="text-slate-500 font-normal">✓ [VERIFY] Tanda tangan valid (Sandbox Gate Verified)</p>
-                    <p className="animate-pulse">📦 [UNPACK] Mengekstrak AndroidManifest.xml & aset DEX...</p>
-                  </>
+                  simulateMismatch ? (
+                    <>
+                      <p className="text-rose-400 font-bold">⚠️ [WARN] Hash biner tidak cocok dengan kunci verifikasi!</p>
+                      <p className="text-amber-400 animate-pulse">⏳ [ANALYSIS] Menghitung checksum payload file...</p>
+                    </>
+                  ) : (
+                    <>
+                      <p className="text-emerald-500 font-normal">✓ [VERIFY] Tanda tangan valid (Sandbox Gate Verified)</p>
+                      <p className="text-emerald-400 animate-pulse">📦 [UNPACK] Mengekstrak AndroidManifest.xml & aset DEX...</p>
+                    </>
+                  )
                 )}
                 {installProgress >= 70 && (
-                  <>
-                    <p className="text-slate-500 font-normal">✓ [VERIFY] Tanda tangan valid (Sandbox Gate Verified)</p>
-                    <p className="text-slate-500 font-normal">✓ [UNPACK] Aset terurai lengkap</p>
-                    <p className="animate-pulse">🚀 [DEPLOY] Mendaftarkan com.ase.workbook ke Sandbox...</p>
-                  </>
+                  simulateMismatch ? (
+                    <>
+                      <p className="text-rose-500 font-bold">❌ [CRITICAL] Integrasi data rusak: SHA-256 Mismatch.</p>
+                      <p className="text-rose-400 font-mono text-[8px]">Expected: 9A:3F:8B... Actual: BE:21:77...</p>
+                    </>
+                  ) : (
+                    <>
+                      <p className="text-emerald-500 font-normal">✓ [VERIFY] Tanda tangan valid (Sandbox Gate Verified)</p>
+                      <p className="text-emerald-500 font-normal">✓ [UNPACK] Aset terurai lengkap</p>
+                      <p className="text-emerald-400 animate-pulse">🚀 [DEPLOY] Mendaftarkan com.ase.workbook ke Sandbox...</p>
+                    </>
+                  )
                 )}
               </div>
             </div>
@@ -2367,7 +2860,7 @@ API Error Rate: ${errorRate}%`;
                 </div>
                 <h5 className="font-extrabold text-xs text-slate-100">Aplikasi terpasang.</h5>
                 <p className="text-[10px] text-slate-400 leading-relaxed max-w-xs mx-auto">
-                  ASE Workbook v1.5.0-beta.1 sukses didaftarkan dan dijalankan di dalam emulasi sandbox perangkat Anda!
+                  ASE Workbook {selectedInstallerVersion} sukses didaftarkan dan dijalankan di dalam emulasi sandbox perangkat Anda!
                 </p>
               </div>
 
@@ -2385,12 +2878,53 @@ API Error Rate: ${errorRate}%`;
                   onClick={() => {
                     setShowAndroidInstaller(false);
                     // Trigger a sweet success toast / visual indicator!
-                    setDownloadSuccessMessage("🚀 Selamat! Aplikasi ASE Workbook v1.5.0-beta.1 berhasil dijalankan di penampung sandbox Anda!");
+                    setDownloadSuccessMessage(`🚀 Selamat! Aplikasi ASE Workbook ${selectedInstallerVersion} berhasil dijalankan di penampung sandbox Anda!`);
                     setTimeout(() => setDownloadSuccessMessage(null), 6000);
                   }}
                   className="px-5 py-2 bg-emerald-600 hover:bg-emerald-500 text-white text-[10px] font-black rounded-xl shadow-lg shadow-emerald-950/50 transition-all cursor-pointer"
                 >
                   Buka
+                </button>
+              </div>
+            </div>
+          )}
+
+          {installerStep === 'failed' && (
+            <div className="space-y-5 text-center">
+              <div className="flex flex-col items-center justify-center space-y-2">
+                <div className="w-12 h-12 bg-rose-950/80 border border-rose-500 rounded-full flex items-center justify-center text-rose-400 text-xl font-bold animate-pulse shadow-md">
+                  ✕
+                </div>
+                <h5 className="font-extrabold text-xs text-rose-400">Pemasangan Gagal (Failed)</h5>
+                <div className="p-3 bg-slate-950 border border-slate-800 rounded-2xl text-left font-mono text-[9px] text-slate-300 leading-relaxed space-y-2 max-w-xs mx-auto">
+                  <p className="text-rose-400 font-bold font-sans">Kesalahan Verifikasi APK:</p>
+                  <p className="whitespace-pre-line text-slate-400 text-[8.5px] leading-relaxed">{installerError}</p>
+                </div>
+                <p className="text-[9px] text-slate-400 leading-relaxed max-w-xs mx-auto pt-1">
+                  Penyebab: Berkas biner APK tidak sesuai dengan tanda tangan manifes rilis resmi.
+                </p>
+              </div>
+
+              {/* Actions */}
+              <div className="flex justify-end gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setShowAndroidInstaller(false)}
+                  className="px-4 py-2 text-[10px] font-bold text-slate-400 hover:text-slate-200 transition-all cursor-pointer"
+                >
+                  Tutup
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSimulateMismatch(false);
+                    setInstallerStep('prompt');
+                    setInstallProgress(0);
+                    setInstallerError(null);
+                  }}
+                  className="px-5 py-2 bg-indigo-600 hover:bg-indigo-500 text-white text-[10px] font-black rounded-xl shadow-lg shadow-indigo-950/50 transition-all cursor-pointer"
+                >
+                  Coba Lagi (Normal)
                 </button>
               </div>
             </div>

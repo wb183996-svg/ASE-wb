@@ -19,7 +19,7 @@ import QuickInputModal from './components/QuickInputModal';
 import { IdentityModule } from './core/IdentityService';
 import { aseKernelInstance } from './core/Kernel';
 import { SyncService } from './utils/syncService';
-import { doc, getDoc, setDoc } from 'firebase/firestore';
+import { doc, getDoc, setDoc, getDocFromCache } from 'firebase/firestore';
 import { db } from './lib/firebase';
 
 import { 
@@ -349,9 +349,47 @@ export default function App() {
         try {
           aseKernelInstance.log('info', 'Database', `Mencari data cloud real Firestore untuk pengguna "${activeSession.user.name}"...`);
           const docRef = doc(db, 'user_states', activeSession.user.uid);
-          const docSnap = await getDoc(docRef);
+          
+          let docSnap;
+          try {
+            docSnap = await getDoc(docRef);
+          } catch (getDocErr: any) {
+            console.warn("Firestore online fetch failed, trying Firestore cache...", getDocErr);
+            try {
+              docSnap = await getDocFromCache(docRef);
+              aseKernelInstance.log('info', 'Database', `Memuat data pengguna offline dari cache Firestore.`);
+            } catch (cacheErr) {
+              console.warn("Firestore cache fetch failed, trying local backup...", cacheErr);
+              // Try local backup
+              const localBackup = localStorage.getItem('ase_backup_' + activeSession.user.uid);
+              if (localBackup) {
+                const cloudData = JSON.parse(localBackup);
+                if (cloudData.workbooks) setWorkbooks(cloudData.workbooks);
+                if (cloudData.activity) setActivity(cloudData.activity);
+                if (cloudData.financeRecords) setFinanceRecords(cloudData.financeRecords);
+                if (cloudData.taskRecords) setTaskRecords(cloudData.taskRecords);
+                if (cloudData.habitRecords) setHabitRecords(cloudData.habitRecords);
+                if (cloudData.crmRecords) setCrmRecords(cloudData.crmRecords);
+                if (cloudData.tradingRecords) setTradingRecords(cloudData.tradingRecords);
+                if (cloudData.okrRecords) setOkrRecords(cloudData.okrRecords);
+                if (cloudData.relationshipRecords) setRelationshipRecords(cloudData.relationshipRecords);
+                if (cloudData.sharedContacts) setSharedContacts(cloudData.sharedContacts);
+                if (cloudData.goals) setGoals(cloudData.goals);
+                if (cloudData.timeline) setTimeline(cloudData.timeline);
+                if (cloudData.purchases) setPurchases(cloudData.purchases);
+                if (cloudData.themeColor) setThemeColor(cloudData.themeColor);
+                if (cloudData.language) setLanguage(cloudData.language);
+                
+                aseKernelInstance.log('success', 'Database', `Berhasil memuat data dari cadangan penyimpanan lokal (offline).`);
+                setIsLoaded(true);
+                return;
+              } else {
+                throw getDocErr; // Rethrow to let outer catch handle it
+              }
+            }
+          }
 
-          if (docSnap.exists()) {
+          if (docSnap && docSnap.exists()) {
             const cloudData = docSnap.data();
             if (cloudData.workbooks) setWorkbooks(cloudData.workbooks);
             if (cloudData.activity) setActivity(cloudData.activity);
@@ -368,6 +406,9 @@ export default function App() {
             if (cloudData.purchases) setPurchases(cloudData.purchases);
             if (cloudData.themeColor) setThemeColor(cloudData.themeColor);
             if (cloudData.language) setLanguage(cloudData.language);
+            
+            // Store local backup
+            localStorage.setItem('ase_backup_' + activeSession.user.uid, JSON.stringify(cloudData));
             
             aseKernelInstance.log('success', 'Database', `Berhasil mengunduh data nyata dari Firestore cloud untuk "${activeSession.user.name}".`);
           } else {
@@ -387,15 +428,48 @@ export default function App() {
             setTimeline(defaultState.timeline);
             setPurchases(defaultState.purchases);
 
-            await setDoc(docRef, {
-              ...defaultState,
-              updatedAt: new Date().toISOString()
-            });
-            aseKernelInstance.log('success', 'Database', `Inisialisasi dokumen database awan Firestore selesai.`);
+            try {
+              await setDoc(docRef, {
+                ...defaultState,
+                updatedAt: new Date().toISOString()
+              });
+              aseKernelInstance.log('success', 'Database', `Inisialisasi dokumen database awan Firestore selesai.`);
+            } catch (setDocErr) {
+              console.warn("Gagal inisialisasi awal ke Firestore (offline), menyimpan ke penyimpanan lokal.", setDocErr);
+            }
+            
+            localStorage.setItem('ase_backup_' + activeSession.user.uid, JSON.stringify(defaultState));
           }
-        } catch (err) {
+        } catch (err: any) {
           console.error("Gagal memuat dari Firestore:", err);
-          loadDefaults();
+          // Try local backup
+          const localBackup = localStorage.getItem('ase_backup_' + activeSession.user.uid);
+          if (localBackup) {
+            try {
+              const cloudData = JSON.parse(localBackup);
+              if (cloudData.workbooks) setWorkbooks(cloudData.workbooks);
+              if (cloudData.activity) setActivity(cloudData.activity);
+              if (cloudData.financeRecords) setFinanceRecords(cloudData.financeRecords);
+              if (cloudData.taskRecords) setTaskRecords(cloudData.taskRecords);
+              if (cloudData.habitRecords) setHabitRecords(cloudData.habitRecords);
+              if (cloudData.crmRecords) setCrmRecords(cloudData.crmRecords);
+              if (cloudData.tradingRecords) setTradingRecords(cloudData.tradingRecords);
+              if (cloudData.okrRecords) setOkrRecords(cloudData.okrRecords);
+              if (cloudData.relationshipRecords) setRelationshipRecords(cloudData.relationshipRecords);
+              if (cloudData.sharedContacts) setSharedContacts(cloudData.sharedContacts);
+              if (cloudData.goals) setGoals(cloudData.goals);
+              if (cloudData.timeline) setTimeline(cloudData.timeline);
+              if (cloudData.purchases) setPurchases(cloudData.purchases);
+              if (cloudData.themeColor) setThemeColor(cloudData.themeColor);
+              if (cloudData.language) setLanguage(cloudData.language);
+              
+              aseKernelInstance.log('success', 'Database', `Menggunakan cadangan lokal pasca kegagalan Firestore (offline).`);
+            } catch (jsonErr) {
+              loadDefaults();
+            }
+          } else {
+            loadDefaults();
+          }
         }
       } else {
         // Guest mode
@@ -486,6 +560,8 @@ export default function App() {
         } catch (err) {
           console.error("Gagal auto-save ke Firestore:", err);
         }
+        // Save local backup as well so offline operations are always in sync
+        localStorage.setItem('ase_backup_' + activeSession.user.uid, JSON.stringify(dataToSave));
       }, 1000);
 
       return () => clearTimeout(delayDebounceFn);

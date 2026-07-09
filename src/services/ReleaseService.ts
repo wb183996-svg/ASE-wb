@@ -256,4 +256,141 @@ export class ReleaseService {
       throw error;
     }
   }
+
+  /**
+   * Membuat rilis baru di GitHub.
+   */
+  public static async createRelease(
+    repositoryName: string,
+    token: string,
+    tag: string,
+    name: string,
+    body: string,
+    draft: boolean,
+    prerelease: boolean
+  ): Promise<ReleaseInfo> {
+    const repository = repositoryName || this.getRepositoryIdentifier();
+    const url = `https://api.github.com/repos/${repository}/releases`;
+
+    if (!token || token.trim() === '') {
+      throw new Error("Token Akses Pribadi (PAT) GitHub diperlukan untuk membuat rilis baru.");
+    }
+
+    try {
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Accept': 'application/vnd.github+json',
+          'Authorization': `token ${token.trim()}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          tag_name: tag,
+          name: name,
+          body: body,
+          draft: draft,
+          prerelease: prerelease
+        })
+      });
+
+      if (!response.ok) {
+        const errData = await response.json().catch(() => ({}));
+        throw new Error(errData.message || `Gagal membuat rilis (Status: ${response.status})`);
+      }
+
+      const raw = await response.json();
+      return {
+        id: raw.id,
+        tagName: raw.tag_name || '',
+        name: raw.name || '',
+        publishedAt: raw.published_at || new Date().toISOString(),
+        body: raw.body || '',
+        assets: Array.isArray(raw.assets)
+          ? raw.assets.map((asset: any) => ({
+              id: asset.id,
+              name: asset.name || '',
+              size: asset.size || 0,
+              downloadCount: asset.download_count || 0,
+              browserDownloadUrl: asset.browser_download_url || '',
+            }))
+          : [],
+      };
+    } catch (error: any) {
+      console.error('Error creating release in ReleaseService:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Menghapus rilis di GitHub.
+   */
+  public static async deleteRelease(repositoryName: string, token: string, releaseId: number): Promise<void> {
+    const repository = repositoryName || this.getRepositoryIdentifier();
+    const url = `https://api.github.com/repos/${repository}/releases/${releaseId}`;
+
+    if (!token || token.trim() === '') {
+      throw new Error("Token Akses Pribadi (PAT) GitHub diperlukan untuk menghapus rilis.");
+    }
+
+    try {
+      const response = await fetch(url, {
+        method: 'DELETE',
+        headers: {
+          'Accept': 'application/vnd.github+json',
+          'Authorization': `token ${token.trim()}`
+        }
+      });
+
+      if (!response.ok) {
+        const errData = await response.json().catch(() => ({}));
+        throw new Error(errData.message || `Gagal menghapus rilis (Status: ${response.status})`);
+      }
+    } catch (error: any) {
+      console.error('Error deleting release in ReleaseService:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Mengunggah aset biner ke rilis GitHub tertentu.
+   */
+  public static async uploadReleaseAsset(
+    repositoryName: string,
+    token: string,
+    releaseId: number,
+    fileName: string,
+    fileData: Blob | File
+  ): Promise<any> {
+    const repository = repositoryName || this.getRepositoryIdentifier();
+    
+    // GitHub asset uploads use uploads.github.com instead of api.github.com
+    const url = `https://uploads.github.com/repos/${repository}/releases/${releaseId}/assets?name=${encodeURIComponent(fileName)}`;
+
+    if (!token || token.trim() === '') {
+      throw new Error("Token Akses Pribadi (PAT) GitHub diperlukan untuk mengunggah aset.");
+    }
+
+    try {
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Accept': 'application/vnd.github+json',
+          'Authorization': `token ${token.trim()}`,
+          'Content-Type': fileData.type || 'application/octet-stream',
+          'Content-Length': fileData.size.toString()
+        },
+        body: fileData
+      });
+
+      if (!response.ok) {
+        const errData = await response.json().catch(() => ({}));
+        throw new Error(errData.message || `Gagal mengunggah aset "${fileName}" (Status: ${response.status})`);
+      }
+
+      return await response.json();
+    } catch (error: any) {
+      console.error('Error uploading release asset in ReleaseService:', error);
+      throw error;
+    }
+  }
 }
