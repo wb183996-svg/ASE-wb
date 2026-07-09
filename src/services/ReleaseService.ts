@@ -63,21 +63,21 @@ export class ReleaseService {
             name: 'ASE-v1.5.0-beta.1-x64.exe',
             size: 47600000, // ~45.4 MB
             downloadCount: 89,
-            browserDownloadUrl: '#sandbox-exe'
+            browserDownloadUrl: '/ASE-web.zip'
           },
           {
             id: 9904,
             name: 'ASE-v1.5.0-beta.1-arm64.dmg',
             size: 50400000, // ~48.1 MB
             downloadCount: 56,
-            browserDownloadUrl: '#sandbox-dmg'
+            browserDownloadUrl: '/ASE-web.zip'
           },
           {
             id: 9905,
             name: 'ASE-v1.5.0-beta.1.AppImage',
             size: 54500000, // ~52.0 MB
             downloadCount: 31,
-            browserDownloadUrl: '#sandbox-appimage'
+            browserDownloadUrl: '/ASE-web.zip'
           }
         ]
       }

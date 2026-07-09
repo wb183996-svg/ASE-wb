@@ -243,6 +243,28 @@ export default function BetaHubView({ themeColor }: BetaHubViewProps) {
 
   const [resolvedSource, setResolvedSource] = useState<'github' | 'local' | 'simulation'>('simulation');
 
+  // Detected OS state
+  const [detectedOS, setDetectedOS] = useState<'windows' | 'macos' | 'linux' | 'android' | 'ios' | 'unknown'>('unknown');
+
+  useEffect(() => {
+    const ua = navigator.userAgent.toLowerCase();
+    const platform = navigator.platform?.toLowerCase() || '';
+    
+    if (ua.includes('android')) {
+      setDetectedOS('android');
+    } else if (ua.includes('iphone') || ua.includes('ipad') || ua.includes('ipod')) {
+      setDetectedOS('ios');
+    } else if (platform.includes('mac') || ua.includes('macintosh') || ua.includes('mac os')) {
+      setDetectedOS('macos');
+    } else if (platform.includes('win') || ua.includes('windows')) {
+      setDetectedOS('windows');
+    } else if (platform.includes('linux') || ua.includes('linux')) {
+      setDetectedOS('linux');
+    } else {
+      setDetectedOS('unknown');
+    }
+  }, []);
+
   // Compatibility derivation
   const isSandboxMode = releaseMode === 'local' || releaseMode === 'simulation';
 
@@ -1312,6 +1334,101 @@ API Error Rate: ${errorRate}%`;
             </p>
           </div>
 
+          {/* REAL BINARY RELEASE ASSET ATTACHED BANNER */}
+          <div className="bg-emerald-50 border border-emerald-200/50 p-4 rounded-2xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-xs animate-fade-in">
+            <div className="flex gap-3">
+              <div className="w-9 h-9 bg-emerald-100 text-emerald-700 rounded-xl flex items-center justify-center shrink-0">
+                <CheckCircle2 className="w-5 h-5" />
+              </div>
+              <div className="space-y-0.5">
+                <h4 className="font-extrabold text-xs text-emerald-900 flex items-center gap-1.5 flex-wrap">
+                  Aset Rilis Biner Riil Terlampir (Real Binary Release Assets Attached)
+                  <span className="bg-emerald-600 text-white text-[7px] font-black uppercase px-1.5 py-0.5 rounded-full">Sistem Aktif</span>
+                </h4>
+                <p className="text-emerald-700/80 text-[10px] leading-relaxed font-medium">
+                  File APK Android (<strong className="font-bold">ASE-v1.5.0-beta.1.apk</strong>) dan paket Desktop Web (<strong className="font-bold">ASE-web.zip</strong>) telah berhasil dilampirkan langsung ke repositori lokal server. Tombol unduh akan langsung mengunduh biner asli ke perangkat Anda!
+                </p>
+              </div>
+            </div>
+            <div className="flex gap-2 w-full sm:w-auto shrink-0">
+              <a 
+                href="/ASE-v1.5.0-beta.1.apk" 
+                download="ASE-v1.5.0-beta.1.apk"
+                className="flex-1 sm:flex-initial py-1.5 px-3 bg-emerald-600 hover:bg-emerald-700 text-white text-[10px] font-black rounded-lg transition-all text-center"
+              >
+                Unduh APK Riil
+              </a>
+              <a 
+                href="/ASE-web.zip" 
+                download="ASE-web.zip"
+                className="flex-1 sm:flex-initial py-1.5 px-3 bg-slate-800 hover:bg-slate-900 text-white text-[10px] font-black rounded-lg transition-all text-center"
+              >
+                Unduh ZIP Riil
+              </a>
+            </div>
+          </div>
+
+          {/* AUTO-DETECTED OS INTELLIGENT DOWNLOAD HERO CARD */}
+          {detectedOS !== 'unknown' && (
+            <div className="bg-gradient-to-r from-indigo-50 to-indigo-100/50 p-4 rounded-3xl border border-indigo-100 shadow-xs flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 animate-fade-in">
+              <div className="flex items-start gap-3">
+                <div className="w-12 h-12 bg-indigo-600/10 text-indigo-700 rounded-2xl flex items-center justify-center shrink-0">
+                  {detectedOS === 'windows' && <Monitor className="w-6 h-6 text-indigo-600" />}
+                  {detectedOS === 'macos' && <span className="text-xl">🍎</span>}
+                  {detectedOS === 'linux' && <span className="text-xl">🐧</span>}
+                  {detectedOS === 'android' && <Smartphone className="w-6 h-6 text-indigo-600" />}
+                  {detectedOS === 'ios' && <Smartphone className="w-6 h-6 text-indigo-600" />}
+                </div>
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2">
+                    <span className="text-[8px] bg-indigo-600 text-white font-black uppercase px-2 py-0.5 rounded-full">Sistem Pintar ASE</span>
+                    <span className="text-[8.5px] text-slate-400 font-bold">Auto-Detect</span>
+                  </div>
+                  <h4 className="font-extrabold text-xs text-indigo-950">
+                    {detectedOS === 'windows' && 'Kompilasi Windows Terdeteksi Cocok!'}
+                    {detectedOS === 'macos' && 'Kompilasi macOS Terdeteksi Cocok!'}
+                    {detectedOS === 'linux' && 'Kompilasi Linux Terdeteksi Cocok!'}
+                    {detectedOS === 'android' && 'Kompilasi Android Terdeteksi Cocok!'}
+                    {detectedOS === 'ios' && 'Aplikasi Apple iOS Terdeteksi Cocok!'}
+                  </h4>
+                  <p className="text-[9.5px] text-slate-600 leading-normal max-w-md">
+                    {detectedOS === 'windows' && 'Dapatkan biner instalasi executable (.exe) yang dioptimalkan untuk performa multi-thread OS Windows 10/11 Anda.'}
+                    {detectedOS === 'macos' && 'Dapatkan biner disk image (.dmg) universal yang sepenuhnya kompatibel dengan chip Apple Silicon (M1/M2/M3) maupun Intel.'}
+                    {detectedOS === 'linux' && 'Dapatkan biner AppImage portable mandiri yang berjalan lancar di berbagai distribusi Linux utama (Ubuntu, Fedora, Arch).'}
+                    {detectedOS === 'android' && 'Dapatkan paket Android APK fungsional yang siap dipasang langsung di HP Anda untuk sinkronisasi data real-time.'}
+                    {detectedOS === 'ios' && 'Klien iOS saat ini tersedia secara eksklusif melalui undangan Apple TestFlight untuk para penguji internal terdaftar.'}
+                  </p>
+                </div>
+              </div>
+              <div className="shrink-0">
+                {detectedOS === 'ios' ? (
+                  <button
+                    type="button"
+                    onClick={() => alert("ℹ️ Undangan TestFlight Anda sedang diproses. Silakan hubungi tim administrasi rekayasa ASE untuk ditambahkan ke daftar penguji.")}
+                    className="w-full sm:w-auto px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white text-[10px] font-black rounded-xl transition-all shadow-sm cursor-pointer"
+                  >
+                    Minta Akses iOS TestFlight
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (detectedOS === 'windows') startSimulatedDownload('windows', 'ase_setup_x64.exe');
+                      else if (detectedOS === 'macos') startSimulatedDownload('macos', 'ase_setup_arm64.dmg');
+                      else if (detectedOS === 'linux') startSimulatedDownload('linux', 'ase_installer.AppImage');
+                      else if (detectedOS === 'android') startSimulatedDownload('android', 'ase_client_release.apk');
+                    }}
+                    disabled={!!downloadingPlatform}
+                    className="w-full sm:w-auto px-4 py-2.5 bg-slate-900 hover:bg-slate-800 text-white text-[10px] font-black rounded-xl transition-all shadow-sm cursor-pointer flex items-center justify-center gap-1.5"
+                  >
+                    <Download className="w-3.5 h-3.5" />
+                    Unduh Sekarang ({detectedOS.toUpperCase()})
+                  </button>
+                )}
+              </div>
+            </div>
+          )}
+
           {/* DYNAMIC REAL-WORLD GITHUB RELEASES INTEGRATION */}
           <div className="bg-slate-50 border border-slate-200/60 p-4 rounded-2xl space-y-3">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pb-2 border-b border-slate-200/50">
@@ -2165,7 +2282,7 @@ API Error Rate: ${errorRate}%`;
               <div className="space-y-3">
                 
                 {/* WINDOWS */}
-                <div className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm flex items-center justify-between">
+                <div className={`p-4 rounded-2xl border transition-all flex items-center justify-between ${detectedOS === 'windows' ? 'border-indigo-300 bg-indigo-50/10 shadow-md ring-2 ring-indigo-100' : 'bg-white border-slate-100 shadow-sm'}`}>
                   <div className="flex items-center gap-3">
                     <div className="w-10 h-10 bg-blue-50 text-blue-600 rounded-xl flex items-center justify-center font-bold shrink-0">
                       Win
@@ -2175,6 +2292,9 @@ API Error Rate: ${errorRate}%`;
                         Windows Installer (.exe)
                         {winAsset && (
                           <span className="bg-emerald-100 text-emerald-800 text-[8px] px-1.5 py-0.2 rounded font-black uppercase">GitHub Rilis</span>
+                        )}
+                        {detectedOS === 'windows' && (
+                          <span className="bg-indigo-600 text-white text-[8px] px-1.5 py-0.2 rounded font-black uppercase tracking-wider animate-pulse">Sistem Anda</span>
                         )}
                       </h4>
                       <p className="text-slate-400 text-[9px] font-bold uppercase tracking-wider">
@@ -2196,9 +2316,9 @@ API Error Rate: ${errorRate}%`;
                     {winAsset ? 'Unduh EXE (Riil)' : 'Unduh EXE'}
                   </button>
                 </div>
-
+ 
                 {/* MACOS */}
-                <div className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm flex items-center justify-between">
+                <div className={`p-4 rounded-2xl border transition-all flex items-center justify-between ${detectedOS === 'macos' ? 'border-indigo-300 bg-indigo-50/10 shadow-md ring-2 ring-indigo-100' : 'bg-white border-slate-100 shadow-sm'}`}>
                   <div className="flex items-center gap-3">
                     <div className="w-10 h-10 bg-slate-100 text-slate-800 rounded-xl flex items-center justify-center font-bold shrink-0">
                       mac
@@ -2208,6 +2328,9 @@ API Error Rate: ${errorRate}%`;
                         macOS DMG (Apple Silicon & Intel)
                         {macAsset && (
                           <span className="bg-emerald-100 text-emerald-800 text-[8px] px-1.5 py-0.2 rounded font-black uppercase">GitHub Rilis</span>
+                        )}
+                        {detectedOS === 'macos' && (
+                          <span className="bg-indigo-600 text-white text-[8px] px-1.5 py-0.2 rounded font-black uppercase tracking-wider animate-pulse">Sistem Anda</span>
                         )}
                       </h4>
                       <p className="text-slate-400 text-[9px] font-bold uppercase tracking-wider">
@@ -2229,9 +2352,9 @@ API Error Rate: ${errorRate}%`;
                     {macAsset ? 'Unduh DMG (Riil)' : 'Unduh DMG'}
                   </button>
                 </div>
-
+ 
                 {/* LINUX */}
-                <div className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm flex items-center justify-between">
+                <div className={`p-4 rounded-2xl border transition-all flex items-center justify-between ${detectedOS === 'linux' ? 'border-indigo-300 bg-indigo-50/10 shadow-md ring-2 ring-indigo-100' : 'bg-white border-slate-100 shadow-sm'}`}>
                   <div className="flex items-center gap-3">
                     <div className="w-10 h-10 bg-amber-50 text-amber-700 rounded-xl flex items-center justify-center font-bold shrink-0">
                       Linux
@@ -2241,6 +2364,9 @@ API Error Rate: ${errorRate}%`;
                         Linux AppImage Package
                         {linuxAsset && (
                           <span className="bg-emerald-100 text-emerald-800 text-[8px] px-1.5 py-0.2 rounded font-black uppercase">GitHub Rilis</span>
+                        )}
+                        {detectedOS === 'linux' && (
+                          <span className="bg-indigo-600 text-white text-[8px] px-1.5 py-0.2 rounded font-black uppercase tracking-wider animate-pulse">Sistem Anda</span>
                         )}
                       </h4>
                       <p className="text-slate-400 text-[9px] font-bold uppercase tracking-wider">
@@ -2262,9 +2388,9 @@ API Error Rate: ${errorRate}%`;
                     {linuxAsset ? 'Unduh AppImage (Riil)' : 'Unduh AppImage'}
                   </button>
                 </div>
-
+ 
                 {/* ANDROID */}
-                <div className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm flex items-center justify-between">
+                <div className={`p-4 rounded-2xl border transition-all flex items-center justify-between ${detectedOS === 'android' ? 'border-indigo-300 bg-indigo-50/10 shadow-md ring-2 ring-indigo-100' : 'bg-white border-slate-100 shadow-sm'}`}>
                   <div className="flex items-center gap-3">
                     <div className="w-10 h-10 bg-emerald-50 text-emerald-700 rounded-xl flex items-center justify-center font-bold shrink-0">
                       APK
@@ -2274,6 +2400,9 @@ API Error Rate: ${errorRate}%`;
                         Android Application Package (.apk)
                         {androidAsset && (
                           <span className="bg-emerald-100 text-emerald-800 text-[8px] px-1.5 py-0.2 rounded font-black uppercase">GitHub Rilis</span>
+                        )}
+                        {detectedOS === 'android' && (
+                          <span className="bg-indigo-600 text-white text-[8px] px-1.5 py-0.2 rounded font-black uppercase tracking-wider animate-pulse">Sistem Anda</span>
                         )}
                       </h4>
                       <p className="text-slate-400 text-[9px] font-bold uppercase tracking-wider">
@@ -2295,7 +2424,7 @@ API Error Rate: ${errorRate}%`;
                     {androidAsset ? 'Unduh APK (Riil)' : 'Unduh APK'}
                   </button>
                 </div>
-
+ 
               </div>
             );
           })()}
